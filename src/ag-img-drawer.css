@@ -1,0 +1,69 @@
+/**
+ * 基于fabric.js的Web绘图器
+ * Created by aegean on 2017/8/16 0019.
+ */
+
+/*主要样式*/
+.aDrawer-wrapper{
+    position: relative;
+    /*display: inline-flex;*/
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #3a3a3a;
+    overflow: hidden;
+}
+.aDrawer{
+    position: absolute;
+    /*background: url("../demo/trouble1.jpg");
+    background-size: 100% 100%;*/
+}
+.aDrawer.show{
+    display: block;
+}
+
+/*辅助样式*/
+.aDrawer-mask{
+    position: absolute;
+    width: 300px;
+    height: 154px;
+    left: 0px;
+    top: 0px;
+    background-color: transparent;
+    z-index: 1;
+}
+.aDrawer-mask.dark{
+    background-color: rgba(6, 6, 6, 0.6);
+}
+.aDrawer-loading{
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    left: calc(50% - 25px);
+    top: calc(50% - 25px);
+    background: url("loading.png") 0px 0px no-repeat;
+    background-size: 50px;
+    transition: transform 1s ease-out;
+    animation: time-loading 3.5s infinite linear;
+    z-index: 2;
+}
+@keyframes time-loading{
+    0%{
+        transform: rotateZ(0deg);
+    }
+    30%{
+        transform: rotateZ(180deg);
+    }
+    50%{
+        transform: rotateZ(180deg);
+    }
+    80%{
+        transform: rotateZ(360deg);
+    }
+    100%{
+        transform: rotateZ(360deg);
+    }
+}
+.ag-smooth{
+    transition: all 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}

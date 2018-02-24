@@ -1,0 +1,297 @@
+*{
+    margin: 0px;
+    padding: 0px;
+}
+html{
+    height: 100%;
+}
+body{
+    height: 100%;
+    background-color: #0a6ebd;
+}
+.page{
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+}
+.drawer-main{
+    float: left;
+    width: calc(100% - 400px);
+    height: 100%;
+}
+.drawer-side{
+    float: left;
+    width: 400px;
+    height: 100%;
+    overflow-y: auto;
+}
+@media screen and (max-width: 1364px) {
+    .drawer-main{
+        float: none;
+        width: 100%;
+    }
+    .drawer-side{
+        float: none;
+        width: 400px;
+    }
+}
+
+/*辅助类*/
+.label-text{
+    color: #444 !important;
+}
+.input{
+    width: 26px;
+    padding: 2px 5px;
+    font-family: "Microsoft YaHei";
+}
+.select{
+    width: 90px;
+    padding: 2px 5px;
+    font-family: "Microsoft YaHei";
+}
+.margin-top-15{
+    margin-top: 15px !important;
+}
+.color-box{
+    width: 26px;
+    height: 24px;
+}
+.font-bold{
+    font-weight: bold;
+}
+.font-italic{
+    font-style: italic;
+}
+.text-underline{
+    text-decoration: underline;
+}
+.text-linethrough{
+    text-decoration: line-through;
+}
+.text-overline{
+    text-decoration: overline;
+}
+.hide{
+    display: none !important;
+}
+.pos-relative{
+    position: relative !important;
+}
+.pos-absolute{
+    position: absolute !important;
+}
+.margin-top10{
+    margin-top: 10px;
+}
+
+/*侧边栏内容盒*/
+.side-box{
+    width: calc(100% - 10px);
+    margin: 5px;
+    color: #000;
+    font-family: "Microsoft YaHei";
+    border: 1px solid #DDD;
+}
+.side-box .side-box-head{
+    padding-left: 5px;
+    background-color: rgba(255, 255, 255, 0.8);
+    font-size: 16px;
+    line-height: 30px;
+}
+.side-box .side-box-main{
+    width: 100%;
+    padding: 10px;
+    color: #333;
+    background-color: rgba(255, 255, 255, 0.4);
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+/*图片台账信息*/
+.book-info span{
+    display: inline-block;
+    width: 49.3%;
+    line-height: 30px;
+}
+
+/*工具*/
+.switcher-container{
+    position: relative;
+}
+.switcher-wrapper{
+    display: inline-block;
+    position: absolute;
+    top: -4px;
+}
+.btns-container{
+    height: 160px;
+    overflow: hidden;
+    transition: height .4s;
+}
+.btns-container.hidden{
+    height: 0px;
+}
+.side-btn{
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-top: 10px;
+    color: #082ce4;
+    background-color: #ececec;
+    font-family: "Microsoft YaHei";
+    font-weight: bold;
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
+.side-btn:hover{
+    color: #ececec;
+    background-color: #0041a5;
+}
+.side-btn.active{
+    color: #ececec;
+    background-color: #003366;
+}
+.side-btn span{
+    display: inline-block;
+    height: 30px;
+    padding-left: 26px;
+    line-height: 30px;
+}
+.side-btn span.icon-rect{
+    background: url("images/icon-rect.png") no-repeat 0px 6px;
+    background-size: 16px;
+}
+.side-btn:hover span.icon-rect, .side-btn.active span.icon-rect{
+    background: url("images/icon-rect-active.png") no-repeat 0px 6px;
+    background-size: 16px;
+}
+.side-btn span.icon-label{
+    background: url("images/icon-label.png") no-repeat 0px 7px;
+    background-size: 16px;
+}
+.side-btn:hover span.icon-label, .side-btn.active span.icon-label{
+    background: url("images/icon-label-active.png") no-repeat 0px 7px;
+    background-size: 16px;
+}
+.side-btn span.icon-del{
+    background: url("images/icon-del.png") no-repeat 0px 6px;
+    background-size: 18px;
+}
+.side-btn:hover span.icon-del, .side-btn.active span.icon-del{
+    background: url("images/icon-del-active.png") no-repeat 0px 6px;
+    background-size: 18px;
+}
+.side-btn span.icon-clear{
+    background: url("images/icon-clear.png") no-repeat 0px 7px;
+    background-size: 16px;
+}
+.side-btn:hover span.icon-clear, .side-btn.active span.icon-clear{
+    background: url("images/icon-clear-active.png") no-repeat 0px 7px;
+    background-size: 16px;
+}
+.side-btn span.icon-preview{
+    background: url("images/icon-preview.png") no-repeat 1px 7px;
+    background-size: 15px 16px;
+}
+.side-btn:hover span.icon-preview, .side-btn.active span.icon-preview{
+    background: url("images/icon-preview-active.png") no-repeat 1px 7px;
+    background-size: 15px 16px;
+}
+.side-btn span.icon-export{
+    background: url("images/icon-export.png") no-repeat 0px 7px;
+    background-size: 15px 16px;
+}
+.side-btn:hover span.icon-export, .side-btn.active span.icon-export{
+    background: url("images/icon-export-active.png") no-repeat 0px 7px;
+    background-size: 15px 16px;
+}
+
+/*高级设置*/
+.settings-container{
+    height: 242px;
+    transition: height .4s;
+    overflow: hidden;
+}
+.settings-container.hidden{
+    height: 0px;
+}
+.settings-label{
+    margin-bottom: 5px;
+    padding: 2px 5px;
+    background-color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+}
+.settings-item{
+    display: inline-block;
+    margin-left: 5px;
+    margin-bottom: 5px;
+}
+.font-oitem{
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    margin-right: 5px;
+    border: 1px solid #fff;
+    text-align: center;
+    line-height: 24px;
+    cursor: pointer;
+}
+.font-oitem.active{
+    border: 1px solid #666;
+    background-color: rgba(255, 255, 255, 0.7);
+}
+.font-oitem-marginL{
+    margin-left: 10px;
+}
+
+/*导出预览*/
+.preview{
+    display: table;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    left: 0px;
+    top: 0px;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 2017;
+}
+.preview .img-wrapper{
+    display: table-cell;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    vertical-align: middle;
+}
+.preview img{
+    width: 80%;
+}
+.preview-close{
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    top: 30px;
+    right: 30px;
+    background: url("images/icon-preview-close.png") no-repeat 0px 0px;
+    background-size: 40px;
+    opacity: 0.4;
+    cursor: pointer;
+}
+.preview-close:hover{
+    opacity: 1;
+}
+
+/*操作提示*/
+#tips{
+    width: 24px;
+    height: 24px;
+    top: 3px;
+    right: 5px;
+    background: url("images/icon-tips.png") no-repeat 0px 0px;
+    background-size: 24px;
+    cursor: pointer;
+}
+.layui-layer-title{
+    padding-left: 10px !important;
+    font-size: 15px !important;
+}

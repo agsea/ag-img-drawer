@@ -1,0 +1,69 @@
+/** Created by aegean on 2017/12/21. **/
+
+.ztree{
+    padding: 0px;
+}
+.ztree *{
+    font-size: 13px;
+}
+.ztree li a{
+    height: 26px;
+    line-height: 26px;
+}
+.ztree li span{
+    margin-right: 6px;
+}
+.ztree li span.button{
+    height: 26px;
+}
+
+/*折叠展开按钮*/
+.ztree li span.button.switch{
+    width: 15px;
+    height: 25px;
+    background: url('icon-triangle.png') no-repeat 0px 0px;
+    background-size: 24px;
+}
+.ztree li span.button.noline_docu{
+    display: none;
+}
+.ztree li span.button.noline_close{
+    background-position: -5px -3px;
+    transform: rotate(-90deg);
+}
+.ztree li span.button.noline_open{
+    background-position: -6px 0px;
+}
+/*文件夹图标*/
+.ztree li span.button.ico_close{
+    background-position: -148px 2px;
+}
+.ztree li span.button.ico_open{
+    background-position: -148px -19px;
+}
+/*文件图标*/
+.ztree li span.button.ico_docu{
+    background: url('icon-cude.png') no-repeat 0px 7px;
+    background-size: 15px;
+}
+/*选中项样式*/
+.ztree li a.curSelectedNode{
+    height: 26px;
+    background-color: #dadada;
+}
+/*编辑与删除*/
+.ztree li span.button.edit{
+    background: url(icon-edit.png) no-repeat 2px 8px;
+    background-size: 13px;
+    transform: rotate(-10deg);
+}
+.ztree li span.button.edit:hover{
+    background-position: 2px 8px;
+}
+.ztree li span.button.remove{
+    background: url(icon-del.png) no-repeat 0px 7px;
+    background-size: 16px;
+}
+.ztree li span.button.remove:hover{
+    background-position: 0px 7px;
+}

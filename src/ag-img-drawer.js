@@ -626,6 +626,14 @@
     };
 
     /**
+     * 设置选中对象
+     * @param object
+     */
+    global.AgImgDrawer.prototype.setActiveObject = function(object) {
+        this.canvas.setActiveObject(object);
+    };
+
+    /**
      * 定位对象至视图中央：缩放、平移
      * @param object
      */

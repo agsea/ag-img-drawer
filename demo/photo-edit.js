@@ -26,6 +26,7 @@ $().ready(function() {
         },
         afterDraw: function(object) {
             // console.info('绘制', object);
+            drawer.setActiveObject(object);
         },
         beforeDelete: function (objects) {
             console.info(objects);

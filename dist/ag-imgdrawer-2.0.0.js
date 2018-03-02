@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.0.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js 2.0.0-rc.3版本的Web绘图器 */
-/*! Modified on 2018/03/02 14:51:33 */
+/*! Modified on 2018/03/02 15:29:58 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -725,6 +725,14 @@
         self.option.afterClear(self.getObjects());
         self.canvas.clear();
         self.setBackgroundImage(self.backgroundImage);
+    };
+
+    /**
+     * 设置选中对象
+     * @param object
+     */
+    global.AgImgDrawer.prototype.setActiveObject = function(object) {
+        this.canvas.setActiveObject(object);
     };
 
     /**

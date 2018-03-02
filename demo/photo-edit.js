@@ -27,6 +27,10 @@ $().ready(function() {
         afterDraw: function(object) {
             // console.info('绘制', object);
         },
+        beforeDelete: function (objects) {
+            console.info(objects);
+            // return false;
+        },
         afterDelete: function(objects) {
             deleteNodeByObjects(objects);
         },

@@ -14,6 +14,7 @@
         afterInitialize: function() {},
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
+        beforeDelete: function () {},       //删除前回调，携带一个参数为要删除的对象数组，方法返回false则取消删除
         afterDelete: function(objects) {},   //删除回调，携带一个参数为删除的对象数组
         afterClear: function(objects) {},          //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},         //选中物体回调，携带一个参数为所选中的对象数组
@@ -572,8 +573,11 @@
      * @param object
      */
     global.AgImgDrawer.prototype.remove = function(object) {
+        var objects = [object];
+        if(this.option.beforeDelete(objects) === false) return;
+
         if(object instanceof fabric.Object && this.canvas.contains(object)) {
-            this.option.afterDelete([object]);
+            this.option.afterDelete(objects);
             this.canvas.remove(object);
         }
     };
@@ -599,10 +603,14 @@
      */
     global.AgImgDrawer.prototype.removeSelection = function() {
         var activeObjs = this.canvas.getActiveObjects();
+
+        if(this.option.beforeDelete(activeObjs) === false) return;
+
         var len = activeObjs.length;
         for(var i = 0; i < len; i++) {
             this.canvas.remove(activeObjs[i]);
         }
+
         this.canvas.discardActiveObject();
         this.option.afterDelete(activeObjs);
     };

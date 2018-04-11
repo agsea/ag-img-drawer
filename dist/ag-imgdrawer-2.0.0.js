@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.0.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js 2.0.0-rc.3版本的Web绘图器 */
-/*! Modified on 2018/03/02 15:29:58 */
+/*! Modified on 2018/04/11 15:45:57 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -116,6 +116,7 @@
         afterInitialize: function() {},
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
+        afterModify: function (object) {},        //修改回调，携带一个参数为所修改的对象
         beforeDelete: function () {},       //删除前回调，携带一个参数为要删除的对象数组，方法返回false则取消删除
         afterDelete: function(objects) {},   //删除回调，携带一个参数为删除的对象数组
         afterClear: function(objects) {},          //清空回调，携带一个参数为包含所有对象的数组
@@ -431,6 +432,7 @@
         });
         canvas.on('object:modified', function(evt) {
             evt.target.modified = true;
+            option.afterModify(evt.target);
         });
 
         //选择集事件

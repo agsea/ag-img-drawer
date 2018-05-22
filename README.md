@@ -1,6 +1,6 @@
 ## AgImgDrawer
 
-基于[fabric.js](https://openlayers.org/) 的图片浏览与编辑模块
+基于[fabric.js](http://fabricjs.com/) 的图片浏览与编辑模块
 
 
 ## License

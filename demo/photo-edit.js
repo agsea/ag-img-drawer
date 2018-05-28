@@ -10,15 +10,16 @@ $().ready(function() {
     zTreeObj = initObjectTree('objTree');
 
     drawer = new AgImgDrawer('myDrawer', {
-        autoAdjustment: true,
         backgroundUrl: 'img_1.jpg',
+        autoAdjustment: true,
         loadingMask: false,
+        // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
             // drawTest();
             drawRects();
-            drawer.setMode('draw');
-            drawer.setSelectable(false);
+            drawer.setMode('edit');
+            // drawer.setSelectable(false);
         },
         afterAdd: function(object) {
             // console.info('添加', object);
@@ -27,13 +28,14 @@ $().ready(function() {
         afterDraw: function(object) {
             // console.info('绘制', object);
             drawer.setActiveObject(object);
+            object.selectable = true;
         },
         afterModify(object) {
             console.info('修改', object);
         },
         beforeDelete: function (objects) {
             console.info(objects);
-            // return false;
+            return false;
         },
         afterDelete: function(objects) {
             deleteNodeByObjects(objects);
@@ -357,6 +359,7 @@ function dark() {
     darkenGroupObject(groupObjectMap['groupObj4']);
 }
 function locate() {
+    highlightGroupObject(groupObjectMap['groupObj' + 3]);
     drawer.locate(groupObjectMap['groupObj' + 3]);
 }
 function refresh() {

@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.0.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js 2.0.0-rc.3版本的Web绘图器 */
-/*! Modified on 2018/04/11 15:45:57 */
+/*! Modified on 2018/05/28 16:32:20 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -110,6 +110,7 @@
     var defaultOption = {
         width: 600,     //若要指定绘图器宽高，请将 autoAdjustment 设为false
         height: 560,
+        padding: 30,    // 图片与容器的边距
         backgroundUrl: null,  //背景图片
         autoAdjustment: true,   //根据容器大小自动调整绘图器宽高
         loadingMask: true,  //加载动画遮罩
@@ -210,21 +211,21 @@
         container.appendChild(canvasEle);
         container.appendChild(self.maskEle);
         container.appendChild(self.loadingEle);
-
         //禁用右键菜单
         container.oncontextmenu = function(evt) {
             evt.returnValue = false;
             return false;
         };
+        _centerElement(container, 300, 154);
 
+        var conParent = container.parentNode;
+        var conPWidth = conParent.clientWidth;
+        var conPHeight = conParent.clientHeight;
         if(option.backgroundUrl) {
             if(option.autoAdjustment) {
                 //获取背景大小
                 fabric.Image.fromURL(option.backgroundUrl, function(oImg) {
-                    var conParent = container.parentNode;
-                    var conPWidth = conParent.clientWidth;
-                    var conPHeight = conParent.clientHeight;
-                    var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height);
+                    var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
 
                     self.backgroundImage = oImg;
                     option.width = newSize[0];
@@ -232,6 +233,7 @@
                     self.originWidth = newSize[0];
                     self.originHeight = newSize[1];
                     _initSize();
+                    _centerElement(container, newSize[0], newSize[1]);
                 });
             }else {
                 fabric.Image.fromURL(option.backgroundUrl, function(oImg) {
@@ -239,6 +241,7 @@
                     self.originWidth = option.width;
                     self.originHeight = option.height;
                     _initSize();
+                    _centerElement(container, option.width, option.height);
                 });
             }
         }else {
@@ -246,6 +249,7 @@
             self.originWidth = option.width;
             self.originHeight = option.height;
             _initSize();
+            _centerElement(container, option.width, option.height);
         }
 
 
@@ -471,7 +475,7 @@
             }
             var keyCode = evt.which;
             if(keyCode === 46) {    //删除键
-                if(self.getMode() !== DRAWER_MODE.browse) {
+                if(self.mode !== DRAWER_MODE.browse) {
                     self.removeSelection();
                 }
             }else if(keyCode >= 37 && keyCode <= 40 && self.selectedItems && !self.selectedItems.isEditing) {   //方位键
@@ -488,10 +492,11 @@
             }else if(keyCode === 32) {  //空格键
                 spaceKey = true;
                 self.canvas.defaultCursor = 'move';
+                self.setSelectable(false, 'move');
             }else if(keyCode === 16) {  //shift键
                 if(self.mode === DRAWER_MODE.draw) {
                     ctrlKey = true;
-                    self.setSelectable(true);
+                    self.setSelectable(true, 'crosshair');
                 }
             }
         }, true);
@@ -499,11 +504,8 @@
             var keyCode = evt.which;
             if(keyCode === 32) { //空格键
                 spaceKey = false;
-                if(self.drawable) {
-                    self.canvas.defaultCursor = 'crosshair';
-                }else {
-                    self.canvas.defaultCursor = 'auto';
-                }
+                self.canvas.defaultCursor = self.mode === DRAWER_MODE.draw ? 'crosshair' : 'auto';
+                self.setSelectable(self.mode === DRAWER_MODE.draw || self.mode === DRAWER_MODE.edit, 'move');
             }else if(keyCode === 16) {  //shift键
                 if(self.mode === DRAWER_MODE.draw) {
                     ctrlKey = false;
@@ -523,7 +525,7 @@
             return;
         }
         this.mode = mode;
-        this.cancelSelection();
+        // this.cancelSelection();
 
         if(mode === DRAWER_MODE.browse) {
             this.canvas.defaultCursor  = 'auto';
@@ -534,7 +536,7 @@
             this.canvas.defaultCursor  = 'auto';
             this.drawable = true;
             this.maskEle.style.display = 'none';
-            this.setSelectable(true);
+            this.setSelectable(true, 'move');
             document.getElementById(this.containerId).dataset.drawable = true;
         }else if(mode === DRAWER_MODE.draw) {
             this.canvas.defaultCursor  = 'crosshair';
@@ -622,7 +624,7 @@
         var conPHeight = parseFloat(conParent.clientHeight);
 
         if(img instanceof fabric.Image) {
-            var newSize = _calcImgSize(conPWidth, conPHeight, img.width, img.height);
+            var newSize = _calcImgSize(conPWidth, conPHeight, img.width, img.height, self.option.padding);
             self.backgroundImage.opacity = 1;
             _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
             self.canvas.setBackgroundImage(img, self.canvas.renderAll.bind(self.canvas));
@@ -642,7 +644,7 @@
         }else {
             self.backgroundUrl = img;
             fabric.Image.fromURL(img, function(oImg) {
-                var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height);
+                var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
                 self.backgroundImage = oImg;
                 self.backgroundImage.opacity = 1;
                 _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
@@ -769,7 +771,7 @@
                 var newMarginT = conT - clientRect.top - object.top * object.zoomY - tempHalfH + conPHeight / 2;
                 container.style.marginLeft = newMarginL + 'px';
                 container.style.marginTop = newMarginT + 'px';
-            }, 450);
+            }, 400);
         });
     };
 
@@ -837,8 +839,9 @@
         var container = document.getElementById(self.containerId);
         container.style.width = self.originWidth + 'px';
         container.style.height = self.originHeight + 'px';
-        container.style.marginLeft = '0px';
-        container.style.marginTop = '0px';
+        // container.style.marginLeft = '0px';
+        // container.style.marginTop = '0px';
+        _centerElement(container, self.originWidth, self.originHeight);
         // container.data('scale', 10);
 
         AgImgLarger.reset(self.containerId, self.originWidth, self.originHeight);
@@ -907,7 +910,7 @@
         }
         this.refresh();
     };
-    
+
     /**
      * 添加物体
      * @param {fabric.Object} object - fabric.Circle、fabric.Rect、fabric.Text、fabric.Point、fabric.Polyline、fabric.Polygon等，
@@ -982,21 +985,23 @@
     /**
      * 设置是否允许选择对象
      * @param flag {boolean}
+     * @param cursor {string}   // crosshair、move
      */
-    global.AgImgDrawer.prototype.setSelectable = function(flag) {
+    global.AgImgDrawer.prototype.setSelectable = function(flag, cursor) {
         this.selectable = flag;
+        this.canvas.selection = flag;
         if(flag) {
             this.canvas.forEachObject(function(obj, index, objs) {
                 obj.selectable = true;
-                obj.hoverCursor = undefined;
-                obj.moveCursor = undefined;
+                obj.hoverCursor = cursor;
+                obj.moveCursor = cursor;
             });
         }else {
             this.cancelSelection();
             this.canvas.forEachObject(function(obj, index, objs) {
                 obj.selectable = false;
-                obj.hoverCursor = 'crosshair';
-                obj.moveCursor = 'crosshair';
+                obj.hoverCursor = cursor;
+                obj.moveCursor = cursor;
             });
         }
     };
@@ -1134,8 +1139,12 @@
      * @param imgWidth
      * @param imgHeight
      */
-    function _calcImgSize(conWidth, conHeight, imgWidth, imgHeight) {
+    function _calcImgSize(conWidth, conHeight, imgWidth, imgHeight, padding) {
+        padding = padding ? padding : 0;
+
         var tempMin = (conWidth < conHeight) ? conWidth : conHeight;
+        tempMin -= padding * 2;
+        tempMin = tempMin < 0 ? 50 : tempMin;
 
         //计算背景图片大小
         var oImgScale = imgWidth / imgHeight;
@@ -1160,6 +1169,23 @@
     function _scaleBackgroundImage(img, canvasWidth, canvasHeight) {
         img.scaleX = canvasWidth / img.width;
         img.scaleY = canvasHeight / img.height;
+    }
+
+    /**
+     * 居中元素
+     * @param ele
+     * @param width
+     * @param height
+     * @private
+     */
+    function _centerElement(ele, width, height) {
+        var conParent = ele.parentNode;
+        var conPWidth = parseFloat(conParent.clientWidth);
+        var conPHeight = parseFloat(conParent.clientHeight);
+        var left = (conPWidth - width) / 2 + 'px';
+        var top = (conPHeight - height) / 2 + 'px';
+        ele.style.marginLeft = left;
+        ele.style.marginTop = top;
     }
 
     /**
@@ -1257,7 +1283,7 @@
      * @param {number} opacity - 透明度
      * @return {string} - 颜色RGB字符串表示
      */
-    var _getRGBAColor = function(hexStr, opacity) {
+    function _getRGBAColor(hexStr, opacity) {
         var sColor = hexStr.toLowerCase();
         if(sColor) {
             if(sColor.length === 4){
@@ -1276,8 +1302,9 @@
         }else{
             return 'rgba(0, 0, 0, ' + opacity + ')';
         }
-    };
+    }
 })(window);
+
 /**
  * 图片放大模块
  * Created by aegean on 2017/5/22 0022.
@@ -1285,7 +1312,7 @@
 
 ;(function(global) {
     //缩放参数：为便于计算，这里的放大比例乘以10，实际执行放大操作时再除以10
-    var SCALE_TOLERANT = 100;
+    var SCALE_TOLERANT = 240;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
     var SCALE_MAX = 60;
@@ -1424,6 +1451,11 @@
      * @private
      */
     function _zoomElement(ele, scale, callback) {
+        var oldML = parseFloat(ele.style.marginLeft);
+        var oldMT = parseFloat(ele.style.marginTop);
+        var oldW = parseFloat(ele.dataset.width);
+        var oldH = parseFloat(ele.dataset.height);
+
         var newW = parseFloat(ele.dataset.originWidth) * scale / 10;
         var newH = parseFloat(ele.dataset.originHeight) * scale / 10;
         ele.dataset.width = newW;
@@ -1432,6 +1464,8 @@
 
         ele.style.width = newW + 'px';
         ele.style.height = newH + 'px';
+        ele.style.marginLeft = oldML - (newW - oldW) / 2 + 'px';
+        ele.style.marginTop = oldMT - (newH - oldH) / 2 + 'px';
 
         if(callback instanceof Function) {
             callback(newW, newH, scale / 10);
@@ -1453,6 +1487,7 @@
         return normalStep;
     }
 })(window);
+
 /* build: `node build.js modules=ALL exclude=gestures,accessors minifier=uglifyjs` */
  /*! Fabric.js Copyright 2008-2015, Printio (Juriy Zaytsev, Maxim Chernyak) */
 

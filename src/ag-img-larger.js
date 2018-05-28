@@ -5,7 +5,7 @@
 
 ;(function(global) {
     //缩放参数：为便于计算，这里的放大比例乘以10，实际执行放大操作时再除以10
-    var SCALE_TOLERANT = 100;
+    var SCALE_TOLERANT = 240;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
     var SCALE_MAX = 60;
@@ -144,6 +144,11 @@
      * @private
      */
     function _zoomElement(ele, scale, callback) {
+        var oldML = parseFloat(ele.style.marginLeft);
+        var oldMT = parseFloat(ele.style.marginTop);
+        var oldW = parseFloat(ele.dataset.width);
+        var oldH = parseFloat(ele.dataset.height);
+
         var newW = parseFloat(ele.dataset.originWidth) * scale / 10;
         var newH = parseFloat(ele.dataset.originHeight) * scale / 10;
         ele.dataset.width = newW;
@@ -152,6 +157,8 @@
 
         ele.style.width = newW + 'px';
         ele.style.height = newH + 'px';
+        ele.style.marginLeft = oldML - (newW - oldW) / 2 + 'px';
+        ele.style.marginTop = oldMT - (newH - oldH) / 2 + 'px';
 
         if(callback instanceof Function) {
             callback(newW, newH, scale / 10);

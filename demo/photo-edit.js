@@ -18,7 +18,8 @@ $().ready(function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
             // drawTest();
             drawRects();
-            drawer.setMode('edit');
+            drawer.setMode('draw');
+            drawer.setExistObjectSelectable(false);
             // drawer.setSelectable(false);
         },
         afterAdd: function(object) {
@@ -28,7 +29,6 @@ $().ready(function() {
         afterDraw: function(object) {
             // console.info('绘制', object);
             drawer.setActiveObject(object);
-            object.selectable = true;
         },
         afterModify(object) {
             console.info('修改', object);

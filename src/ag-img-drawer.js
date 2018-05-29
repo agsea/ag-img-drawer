@@ -394,7 +394,7 @@
             }else if(keyCode === 16) {  //shift键
                 if(self.mode === DRAWER_MODE.draw) {
                     ctrlKey = true;
-                    self.setSelectable(true, 'crosshair');
+                    // self.setSelectable(true, 'crosshair');
                 }
             }
         }, true);
@@ -407,7 +407,7 @@
             }else if(keyCode === 16) {  //shift键
                 if(self.mode === DRAWER_MODE.draw) {
                     ctrlKey = false;
-                    self.setSelectable(false);
+                    // self.setSelectable(false);
                 }
             }
         }, true);
@@ -883,7 +883,7 @@
     /**
      * 设置是否允许选择对象
      * @param flag {boolean}
-     * @param cursor {string}   // crosshair、move
+     * @param cursor {string}
      */
     global.AgImgDrawer.prototype.setSelectable = function(flag, cursor) {
         this.selectable = flag;
@@ -904,6 +904,26 @@
         }
     };
 
+    /**
+     * 设置画布上已有对象是否可被选择
+     * @param ifSelectable {boolean}
+     */
+    global.AgImgDrawer.prototype.setExistObjectSelectable = function(ifSelectable, cursor) {
+        if(ifSelectable) {
+            this.canvas.forEachObject(function(obj, index, objs) {
+                obj.selectable = true;
+                obj.hoverCursor = cursor;
+                obj.moveCursor = cursor;
+            });
+        }else {
+            this.cancelSelection();
+            this.canvas.forEachObject(function(obj, index, objs) {
+                obj.selectable = false;
+                obj.hoverCursor = cursor;
+                obj.moveCursor = cursor;
+            });
+        }
+    };
 
     //--------------------------------------------------------
     //辅助方法

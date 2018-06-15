@@ -365,6 +365,9 @@
             self.selectedItems = null;
             option.afterCancelSelect();
         });
+        canvas.on('object:scaling', function(evt) {
+            // console.info(evt);
+        });
 
         //键盘事件监听
         window.addEventListener('keydown', function(evt) {
@@ -963,6 +966,14 @@
         var divEle = document.createElement('div');
         divEle.className = 'aDrawer-loading';
         return divEle;
+    }
+
+    /**
+     * 创建锚点对象(方形或圆形)
+     * @private
+     */
+    function _createAnchorObject() {
+
     }
 
     /**

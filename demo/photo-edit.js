@@ -19,7 +19,7 @@ $().ready(function() {
             // drawTest();
             drawRects();
             drawer.setMode('draw');
-            drawer.setExistObjectSelectable(false);
+            // drawer.setExistObjectSelectable(false);
             // drawer.setSelectable(false);
         },
         afterAdd: function(object) {

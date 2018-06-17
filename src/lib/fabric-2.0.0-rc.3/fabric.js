@@ -9690,24 +9690,37 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
     },
 
     /**
+     * 此方法源码已被修改：实现拖拽边角控制锚点时能按自由比例缩放选中物体
+     * 修改于 2018-06-17 18:30
      * @private
      * @return {Boolean} true if the scaling occurred
      */
     _scaleObjectEqually: function(localMouse, target, transform, _dim) {
 
-      var dist = localMouse.y + localMouse.x,
+      /*var dist = localMouse.y + localMouse.x,
           lastDist = _dim.y * transform.original.scaleY / target.scaleY +
-                     _dim.x * transform.original.scaleX / target.scaleX,
-          scaled, signX = localMouse.x < 0 ? -1 : 1,
+                     _dim.x * transform.original.scaleX / target.scaleX,*/
+      var scaled, signX = localMouse.x < 0 ? -1 : 1,
           signY = localMouse.y < 0 ? -1 : 1;
+
+      // 对X和Y两个方向分别计算缩放比例的变化因子
+      var _scaleFactorX = localMouse.x / (_dim.x * transform.original.scaleX / target.scaleX);
+      var _scaleFactorY = localMouse.y / (_dim.y * transform.original.scaleY / target.scaleY);
 
       // We use transform.scaleX/Y instead of target.scaleX/Y
       // because the object may have a min scale and we'll loose the proportions
-      transform.newScaleX = signX * Math.abs(transform.original.scaleX * dist / lastDist);
-      transform.newScaleY = signY * Math.abs(transform.original.scaleY * dist / lastDist);
+
+      // 源码中缩放比例计算方式
+      // transform.newScaleX = signX * Math.abs(transform.original.scaleX * dist / lastDist);
+      // transform.newScaleY = signY * Math.abs(transform.original.scaleY * dist / lastDist);
+      // 修改后缩放比例计算方式
+      transform.newScaleX = signX * Math.abs(transform.original.scaleX * _scaleFactorX);
+      transform.newScaleY = signY * Math.abs(transform.original.scaleY * _scaleFactorY);
+
       scaled = transform.newScaleX !== target.scaleX || transform.newScaleY !== target.scaleY;
       target.set('scaleX', transform.newScaleX);
       target.set('scaleY', transform.newScaleY);
+
       return scaled;
     },
 

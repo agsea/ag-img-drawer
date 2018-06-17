@@ -31,10 +31,10 @@ $().ready(function() {
             drawer.setActiveObject(object);
         },
         afterModify(object) {
-            console.info('修改', object);
+            // console.info('修改', object);
         },
         beforeDelete: function (objects) {
-            console.info(objects);
+            // console.info(objects);
             return false;
         },
         afterDelete: function(objects) {
@@ -44,7 +44,7 @@ $().ready(function() {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            console.info('选中', objects);
+            // console.info('选中', objects);
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -206,7 +206,7 @@ function exportCanvas() {
     var dataURL = drawer.getDataURL({
         quality: 1
     });
-    console.info(dataURL);
+    // console.info(dataURL);
 }
 $('.preview-close').click(function() {
     $(this).parent().addClass('hide');
@@ -240,12 +240,12 @@ var groupObjectMap = {};
 function drawRects() {
     //按组聚合矩形框和标签
     var group, rect, label;
-    for(var i = 0; i < 5; i++) {
-        var left = 120 * (i + 1);
-        var top = 40 * (i + 1);
+    for(var i = 0; i < 2; i++) {
+        var left = 100 * i;
+        var top = 100 * i;
 
-        var w = randomFrom(15, 50);
-        var h = randomFrom(15, 50);
+        var w = 100;//randomFrom(15, 50);
+        var h = 100;//randomFrom(15, 50);
         var style = getLabelStyle(w, h);
         rect = createRect(w, h, 0, 0);
         label = crateLabel(i + 1, style.left, style.top, style.fontSize);

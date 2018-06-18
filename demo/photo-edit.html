@@ -17,8 +17,11 @@
     <div class="page">
         <div class="aDrawer-wrapper drawer-main">
             <div class="aDrawer" id="myDrawer"></div>
+            <div class="fold-icon" onclick="toggleSide(this)">
+                <div></div>
+            </div>
         </div>
-        <div class="drawer-side">
+        <div class="drawer-side active">
             <div class="side-box">
                 <div class="side-box-head pos-relative">
                     工具<div class="pos-absolute" id="tips" title="操作提示"></div>
@@ -229,7 +232,7 @@
     <!--<script type="text/javascript" src="../assets/zTree_v3/js/jquery.ztree.excheck.js"></script>-->
     <script type="text/javascript" src="assets/zTree_v3/js/jquery.ztree.exedit.js"></script>
 
-    <script src="../src/lib/fabric-2.0.0-rc.3/fabric.js"></script>
+    <script src="../src/lib/fabric-2.3.2/fabric.js"></script>
     <script src="../src/ag-img-dragger.js"></script>
     <script src="../src/ag-img-larger.js"></script>
     <script src="../src/ag-img-drawer.js"></script>

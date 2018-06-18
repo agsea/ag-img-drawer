@@ -10,7 +10,7 @@ $().ready(function() {
     zTreeObj = initObjectTree('objTree');
 
     drawer = new AgImgDrawer('myDrawer', {
-        backgroundUrl: 'img_1.jpg',
+        backgroundUrl: 'img_3.jpg',
         autoAdjustment: true,
         loadingMask: false,
         // padding: 50,
@@ -49,6 +49,21 @@ $().ready(function() {
     });
     // drawer.drawType = 'Ellipse';
 });
+
+function toggleSide(ele) {
+    var $this = $(ele);
+    var $main =$('.drawer-main');
+    var $side =$('.drawer-side');
+    if($this.hasClass('fold')) {
+        $this.removeClass('fold');
+        $main.removeClass('active');
+        $side.addClass('active');
+    }else {
+        $this.addClass('fold');
+        $main.addClass('active');
+        $side.removeClass('active');
+    }
+}
 
 function zoomIn() {
     AgImgLarger.zoomIn('myDrawer', function(newWidth, newHeight, scale) {
@@ -220,7 +235,6 @@ $('#tips').click(function() {
         closeBtn: 2,
         shade: 0.4,
         skin: 'layui-layer-rim', //加上边框
-        area: ['360px', '170px'], //宽高
         content: '<div style="padding: 15px; color: #007d86; font-size: 14px; line-height: 30px;"><p>1.在任何状态下按住空格键和鼠标左键可拖动图片</p><p>2.在任何状态下滚动鼠标滚轮缩放图片</p><p>3.在编辑和绘制状态下按住shift键框选对象或点击多选</p></div>'
     });
 });

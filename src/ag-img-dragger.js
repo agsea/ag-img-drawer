@@ -48,8 +48,8 @@
                 }
             });
 
-            // 鼠标移动
-            dragEle.addEventListener('mousemove', function(evt) {
+            // 鼠标移动(为优化体验，将鼠标移动事件注册至全局)
+            window.addEventListener('mousemove', function(evt) {
                 if((dragEle.dataset.drawable === 'false' || spaceKey) && hit) {
                     //当前鼠标位置
                     var mouseX = evt.clientX || evt.pageX || evt.screenX;

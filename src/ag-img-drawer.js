@@ -980,11 +980,11 @@
         fabric.Object.prototype.cornerSize = 6;
         fabric.Object.prototype.cornerColor = '#00CCFF';
         fabric.Object.prototype.borderColor = '#00CCFF';
-        // 从旋转锚点开始顺时针：mt, mt, tr, mr, br, mb, bl, ml, tl
-        /*fabric.Object.prototype.setControlVisible('ml', false);
+
+        fabric.Object.prototype.setControlVisible('ml', false);
         fabric.Object.prototype.setControlVisible('mb', false);
         fabric.Object.prototype.setControlVisible('mr', false);
-        fabric.Object.prototype.setControlVisible('mt', false);*/
+        fabric.Object.prototype.setControlVisible('mt', false);
     }
 
     /**

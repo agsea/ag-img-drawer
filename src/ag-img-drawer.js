@@ -150,7 +150,6 @@
             _centerElement(container, option.width, option.height);
         }
 
-
         //初始化大小
         function _initSize() {
             //设置样式
@@ -191,6 +190,7 @@
         self.setSize(option.width, option.height, 1);
         self.setBackgroundImage(self.backgroundImage, null);
         self.loadingEle.style.display = 'none';
+        _setGlobalObjectProp();
         _setGlobalControlStyle();
 
         //添加动画
@@ -224,8 +224,10 @@
 
                 //判断绘制类型
                 if(self.drawType === DRAWER_TYPE.rect) {
-                    tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
-                    tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                    // tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
+                    // tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                    tempWidth = Math.abs(endX - startX) - self.drawStyle.borderWidth;
+                    tempHeight = Math.abs(endY - startY) - self.drawStyle.borderWidth;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -236,12 +238,15 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle._borderWidth,
+                        strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.ellipse) {
-                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
-                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                    // tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                    // tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle.borderWidth / 2;
+                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle.borderWidth / 2;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -252,7 +257,8 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle._borderWidth,
+                        strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.text) {
@@ -333,22 +339,24 @@
             option.afterAdd(evt.target);
         });
         canvas.on('object:modified', function(evt) {
-            evt.target.modified = true;
-            option.afterModify(evt.target);
+            var target = evt.target;
+            target.modified = true;
+            option.afterModify(target);
+            _calcObjSizeAfterScale(target, target.scaleX, target.scaleY);
         });
 
         //选择集事件
         canvas.on('selection:created', function(evt) {
+            hasSelect = true;
+
             if(self.drawingItem) {
                 return;
             }
 
-            hasSelect = true;
             self.selectedItems = evt.target;
             option.afterSelect(self.getSelection());
         });
         canvas.on('selection:updated', function(evt) {
-            hasSelect = true;
             self.selectedItems = evt.target;
             option.afterSelect(self.getSelection());
         });
@@ -684,30 +692,16 @@
      */
     global.AgImgDrawer.prototype.setSize = function(width, height, zoom) {
         this.zoom = zoom;
-
         this.canvas.setWidth(width);
         this.canvas.setHeight(height);
-        this.canvas.setZoom(this.zoom);
-
+        this.canvas.setZoom(zoom);
         this.maskEle.style.width = width + 'px';
         this.maskEle.style.height = height + 'px';
 
         //根据缩放比例为矩形框设置边框粗细
-        var objects = this.canvas.getObjects(), object, innerObjs;
-        for(var i = 0, len = objects.length; i < len; i++) {
-            object = objects[i];
-            if(object.isType('rect')) {
-                _setStrokeWidthByScale(object, this.zoom);
-            }else if(object.isType('group')) {
-                innerObjs = object.getObjects();
-                for(var j =0; j < innerObjs.length; j++) {
-                    if(innerObjs[j].isType('rect')) {
-                        _setStrokeWidthByScale(innerObjs[j], this.zoom);
-                    }
-                }
-            }
-        }
-
+        this.canvas.forEachObject(function(obj, index, objs) {
+            _setStrokeWidthByScale(obj, zoom);
+        });
         this.canvas.renderAll();
     };
 
@@ -969,11 +963,12 @@
     }
 
     /**
-     * 创建锚点对象(方形或圆形)
+     * 设置对象公共属性
      * @private
      */
-    function _createAnchorObject() {
-
+    function _setGlobalObjectProp() {
+        // 禁用缩放翻转
+        fabric.Object.prototype.lockScalingFlip = true;
     }
 
     /**
@@ -1033,13 +1028,19 @@
     /**
      * 根据缩放等级获取边框宽度
      * @private
-     * @param originW - 原始边框粗细
+     * @param item
      * @param scale - 当前缩放比例
-     * @return {number}
      */
     function _setStrokeWidthByScale(item, scale) {
-        var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
-        item.set('strokeWidth', strokeWidth).setCoords();
+        if(item.isType('rect') || item.isType('ellipse')) {
+            var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
+            item.set('strokeWidth', strokeWidth).setCoords();
+        }else if(item.isType('group')) {
+            item.forEachObject(function(obj, index, objs) {
+                _setStrokeWidthByScale(obj, scale);
+                console.info(item.calcCoords());
+            });
+        }
     }
 
     /**
@@ -1118,63 +1119,49 @@
     }
 
     /**
-     * 对象扩展（基于jQuery extend原理）
+     * 计算对象缩放后的实际尺寸
+     * @param target
+     * @param scaleX
+     * @param scaleY
      * @private
-     * @param {boolean|object} arg - 可变参数，你可以传入任意个参数将它们合并为一个对象；当不传入任何参数或者只有一个参数且类型不是对象，或者该参数为布尔值时将返回空对象；当参数个数大于等于两个时，
-     * 若第一个参数类型不是布尔值或为 false ，将返回后续参数的浅拷贝合并，否则返回第一个参数后续参数的深拷贝合并
-     * @return {object} - 扩展后的对象
      */
-    /*var _extend = (function fn() {
-        var options, name, src, copy, copyIsArray, clone,
-            target = arguments[0] || {},
-            length = arguments.length,
-            i = 1, deep = false;
-
-        //是否深度拷贝
-        if(typeof target === "boolean") {
-            deep = target;
-            target = arguments[ i ] || {};
-            i++;
-        }
-        if(typeof target !== "object" && !jQuery.isFunction(target)) {
-            target = {};
-        }
-        if(i === length) {
-            target = {};
-            i--;
-        }
-
-        for(; i < length; i++) {
-            if((options = arguments[i]) !== null) {
-                for(name in options) {
-                    src = target[name];
-                    copy = options[name];
-
-                    // Prevent never-ending loop
-                    if(target === copy) {
-                        continue;
-                    }
-
-                    // Recurse if we're merging plain objects or arrays
-                    if(deep && copy && (jQuery.isPlainObject(copy) || (copyIsArray = jQuery.isArray(copy)))) {
-                        if(copyIsArray) {
-                            copyIsArray = false;
-                            clone = src && jQuery.isArray(src) ? src : [];
-                        }else {
-                            clone = src && jQuery.isPlainObject(src) ? src : {};
-                        }
-                        // Never move original objects, clone them
-                        target[name] = fn(deep, clone, copy);
-                    }else if (copy !== undefined) {
-                        target[name] = copy;
-                    }
-                }
+    function _calcObjSizeAfterScale(target, scaleX, scaleY) {
+        var type = target.type;
+        if(type === 'activeSelection' || type === 'group') {// 选择集、组
+            target.set({
+                width: target.getScaledWidth(),
+                height: target.getScaledHeight(),
+                scaleX: 1,
+                scaleY: 1
+            });
+            target.forEachObject(function (obj, index, objs) {
+                _calcObjSizeAfterScale(obj, scaleX, scaleY);
+            });
+        }else if(type === 'rect') {// 对象
+            var offsetSWX = target.strokeWidth * (scaleX - 1);
+            var offsetSWY = target.strokeWidth * (scaleY - 1);
+            if(target.group) {
+                target.set({
+                    width: target.width * scaleX + offsetSWX,
+                    height: target.height * scaleY + offsetSWY,
+                    left: target.left * scaleX,
+                    top: target.top * scaleY
+                }).setCoords();
+            }else {
+                target.set({
+                    width: target.getScaledWidth() + offsetSWX * 2,
+                    height: target.getScaledHeight() + offsetSWY * 2,
+                    scaleX: 1,
+                    scaleY: 1
+                }).setCoords();
             }
+        }else {
+            target.set({
+                left: target.left * scaleX,
+                top: target.top * scaleY
+            }).setCoords();
         }
-
-        // Return the modified object
-        return target;
-    });*/
+    }
 
     /**
      * 合并对象属性：若存在相同属性则使用后面对象的属性

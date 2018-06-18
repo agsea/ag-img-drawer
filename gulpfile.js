@@ -59,7 +59,7 @@ gulp.task('concatJs_tmp_min', function() {
 });
 // 合并未压缩的临时js与依赖库
 gulp.task('concatJs', ['concatJs_tmp'], function() {
-    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.js`, './src/lib/fabric-2.0.0-rc.3/fabric.js'])
+    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.js`, './src/lib/fabric-2.3.2/fabric.js'])
         .pipe(concat('all.js'))
         .pipe(inject.prepend(concatBanner))
         .pipe(inject.append(footerStr))
@@ -68,7 +68,7 @@ gulp.task('concatJs', ['concatJs_tmp'], function() {
 });
 // 合并压缩的临时js与依赖库
 gulp.task('concatJs_min', ['concatJs_tmp_min'], function() {
-    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.min.js`, './src/lib/fabric-2.0.0-rc.3/fabric.min.js'])
+    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.min.js`, './src/lib/fabric-2.3.2/fabric.min.js'])
         .pipe(concat('all.min.js'))
         .pipe(inject.prepend(uglifyBanner))
         .pipe(inject.append(footerStr))

@@ -96,22 +96,23 @@
     function _registeWheelEvt(ele, callback) {
         ele.addEventListener('mousewheel', function(evt) {
             var delta = evt.wheelDelta && (evt.wheelDelta > 0 ? 1 : -1);
-            _wheelHandler(ele, delta, callback);
+            _wheelHandler(evt, ele, delta, callback);
         });
         ele.addEventListener('DOMMouseScroll', function(evt) {
             var delta = evt.detail && (evt.detail > 0 ? -1 : 1);
-            _wheelHandler(ele, delta, callback);
+            _wheelHandler(evt, ele, delta, callback);
         });
     }
 
     /**
      * 滚轮事件处理函数
+     * @param evt
      * @param ele
      * @param delta
      * @param callback
      * @private
      */
-    function _wheelHandler(ele, delta, callback) {
+    function _wheelHandler(evt, ele, delta, callback) {
         // 对连续滚轮缩放做检测
         if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
             // console.info('操作过于频繁');
@@ -133,21 +134,32 @@
             scale -= _scaleStep;
         }
 
-        _zoomElement(ele, scale, callback);
+        var pointer = {
+            x: evt.pageX,
+            y: evt.pageY
+        };
+        _zoomElement(pointer, ele, scale, callback);
     }
 
     /**
-     * 缩放元素
+     * 缩放元素(以鼠标所在位置为缩放中心)
+     * @param pointer
      * @param ele
      * @param scale
      * @param callback
      * @private
      */
-    function _zoomElement(ele, scale, callback) {
+    function _zoomElement(pointer, ele, scale, callback) {
         var oldML = parseFloat(ele.style.marginLeft);
         var oldMT = parseFloat(ele.style.marginTop);
         var oldW = parseFloat(ele.dataset.width);
         var oldH = parseFloat(ele.dataset.height);
+
+        var pBoundRect = ele.parentNode.getBoundingClientRect();
+        var relaMX = pointer.x - pBoundRect.left;
+        var relaMY = pointer.y - pBoundRect.top;
+        var zoomRationX = (relaMX - oldML) / oldW;
+        var zoomRationY = (relaMY - oldMT) / oldH;
 
         var newW = parseFloat(ele.dataset.originWidth) * scale / 10;
         var newH = parseFloat(ele.dataset.originHeight) * scale / 10;
@@ -157,8 +169,10 @@
 
         ele.style.width = newW + 'px';
         ele.style.height = newH + 'px';
-        ele.style.marginLeft = oldML - (newW - oldW) / 2 + 'px';
-        ele.style.marginTop = oldMT - (newH - oldH) / 2 + 'px';
+        // ele.style.marginLeft = oldML - (newW - oldW) / 2 + 'px';
+        // ele.style.marginTop = oldMT - (newH - oldH) / 2 + 'px';
+        ele.style.marginLeft = oldML - zoomRationX * (newW - oldW) + 'px';
+        ele.style.marginTop = oldMT - zoomRationY * (newH - oldH) + 'px';
 
         if(callback instanceof Function) {
             callback(newW, newH, scale / 10);

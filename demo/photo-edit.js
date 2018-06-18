@@ -44,7 +44,7 @@ $().ready(function() {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            // console.info('选中', objects);
+            // console.info('选中', objects[0]);
         }
     });
     // drawer.drawType = 'Ellipse';

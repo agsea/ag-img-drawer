@@ -4,7 +4,7 @@
  */
 
 ;(function(global) {
-    //默认配置项
+    // 默认配置项
     var defaultOption = {
         width: 600,     //若要指定绘图器宽高，请将 autoAdjustment 设为false
         height: 560,
@@ -16,30 +16,61 @@
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
         afterModify: function (object) {},        //修改回调，携带一个参数为所修改的对象
-        beforeDelete: function () {},       //删除前回调，携带一个参数为要删除的对象数组，方法返回false则取消删除
-        afterDelete: function(objects) {},   //删除回调，携带一个参数为删除的对象数组
+        beforeDelete: function () {},       //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下，方法返回false则取消删除
+        afterDelete: function(objects) {},   //删除回调，携带参数：删除的对象数组、ctrl键是否按下
         afterClear: function(objects) {},          //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},         //选中物体回调，携带一个参数为所选中的对象数组
         afterCancelSelect: function() {}    //取消选中物体回调
     };
-    //绘图器模式
-    //浏览模式（browse）：不能操作对象，只能对画布进行缩放和移动，此模式为默认模式
-    //编辑模式（edit）：可以删除移动修改已绘制对象，不能绘制新对象
-    //绘制模式（draw）：可以进行所有交互操作，其中处于该模式下时移动画布对象需摁住空格键并摁下鼠标左键移动鼠标
+    // 绘图器模式
+    // 浏览模式（browse）: 默认只能像浏览图片一样操作绘图器，无法对画布上的对象做任何操作（遮罩显示），可直接拖拽画布
+    // 编辑模式（edit）: 默认行为类似浏览模式（遮罩不显示），摁住空格键可拖拽画布
+    //                摁住ctrl键可进行对象选择，松开后除已选择对象外其余所有对象不可选，且单击选中对象之外的地方将取消选中
+    //               （默认摁住ctrl才能对对象操作，也可以调用方法设置直接能操作）
+    // 绘制模式（draw）: 摁住空格键可拖拽画布
+    //                所有对象不可选，切换至该模式后所有已选中对象也必须取消选中状态
+    //                可在画布上任意地方绘制矩形对象，仅有新绘制的对象可被编辑
     var DRAWER_MODE = {
         browse: 'browse',
         edit: 'edit',
         draw: 'draw'
     };
-    //绘制类型：Rect、Circle、Circle
+    // 绘制类型：Rect、Circle、Circle
     var DRAWER_TYPE = {
         rect: 'Rect',
         ellipse: 'Ellipse',
         text: 'Text'
     };
+    // 快捷键
+    /*
+    1.选择物体：ctrl(按住) + 鼠标左键
+    2.拖拽画布：T
+    3.保存物体：Enter
+    4.删除物体：Delete
+    5.添加物体：Q/W（应支持添加附加属性，用以区分诸如缺陷框和普通物体框）
+    6.复制选中物体：ctrl + C
+    7.粘贴选中物体：ctrl + V
+    8.删除所有系统识别物体：ctrl + Delete（传入过滤参数？）
+    */
+
+    // 内部变量
+    var _beforeActiveObjs = null;
+    var _clipboard = null;
+    var _ctrlKey = false;
+    var _mousePosition = {
+        move: {x: 0, y: 0}
+    };
+
+    // 鼠标指针图片Base64
+    var CURSOR = {
+        handOpen: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABVVVUGMzMzBf///wEzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFVVVQM7OzucQUFB1D09Pes4ODj4NDQ0/TU1Nfw2Njb7NjY2+jMzM/82NjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8ojMzM//Q0ND/5eXl//f39//////////////////7+/v/g4OD/z8/P6UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg4OFdHR0f18fHx///////////////////////////////////////Pz8//QUFB3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3Pj4+9d7e3v////////////////////////////////////////////////9aWlrzNTU1YQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0ejMzM//h4eH//////////////////////////////////////////////////////9vb2/87OzvvOTk5CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMzczMzP/zs7O/////////////////////////////////////////////////////////////////2NjY/I1NTVbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRFPj4+9cPDw///////////////////////////////////////////////////////////////////////xcXF/z8/P84AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMzMzLTs7O/TV1dX////////////////////////////////////////////////////////////////////////////t7e3/Ojo68wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEZGRgs7Ozvkvb29/f////////////////////////////////////////////////////////////////////////////////////89PT32PT09FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOTk5eWpqavT//////////////////////////////////////////////////////////////////////////////////////////01NTfAzMzMtAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wE8PDzt39/f////////////////////////////////////////////////////////////////////////////////////////////XV1d7zU1NT8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1PlFRUfH//////////////////////Pz8//////////////////////////////////////////////////////////////////////9wcHDyNDQ0VAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2anp6e/P///////////////zMzM/8zMzP//////////////////////////////////////////////////////////////////////6enp/4/Pz+mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw8PO7j4+P///////////+srKz9MzMz/4+Pj/r/////////////////////////////////////////////////////////////////////6Ojo/zo6OvNVVVUDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDQ2S0tL8v//////////8PDw/zw8PPY5OTnIrq6u////////////////////////////////////////////////////////////////////////////U1NT8DMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHuQkJD5//////////9PT0/7PDw8nUJCQszKysr//////////////////////////////////////////////////////6Ojo/+srKz8//////////+goKD8PDw8lgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj4+qbKysv//////kJCQ+zMzM/9VVVUGPT096+Tk5P///////////zk5Of59fX3////////////Ly8v/MzMz////////////e3t7/zMzM////////////9TU1P8/Pz/fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7OzuHMzMz/15eXu48PDzcPT09FUBAQAQ2Njb8////////////////MzMz/5aWlv///////////8bGxv8zMzP///////////+8vLz/MzMz/9nZ2f///////f39/zo6OvgzMzMUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3NTU1Vjk5OQkAAAAANTU1IkNDQ/P//////////9PT0/8zMzP/qamp////////////t7e3/zMzM//5+fn//////8/Pz/8zMzP/hYWF9///////////aWlp8DMzM1UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2NjZCXV1d7///////////mJiY+zMzM/+qqqr///////////+jo6P/MzMz/+Pj4///////4uLi/zc3N/U7Ozv29PT0//////+ZmZn9Nzc3hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NWB5eXnz//////////9XV1fwPDw8q6urq////////////4mJifg7Ozvgx8fH///////y8vL/ODg49T4+PqSWlpb6/////7i4uP9AQECyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0e5aWlvz/////8/Pz/zg4OPg9PT2eqamp////////////b29v8DU1Ne6rq6v///////////81NTX9ODg4IDk5Offg4OD/t7e3/zMzM/oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2eqqqq//////+/v7//Q0NDwz4+Ppypqan///////////9SUlLvMzMzgouLi/n//////////z8/P/U6OjoWPDw8VTMzM/89PT38NDQ0ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENDQ7i8vLz//////4iIiPg1NTV0Pj4+nKmpqf///////////zw8PPYzMzNQYmJi7///////////SUlJ8TMzMygAAAAANTU1ZjQ0NHoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERExMbGxv//////UVFR7zc3Nzg/Pz+bq6ur///////39/f/NjY2+zs7Oxo9PT31//////////9UVFTvNjY2NAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBQUG0urq6/+7u7v85OTn0SUlJBz8/P5qqqqr//////93d3f8/Pz/i////AT8/P+Ta2tr//////1NTU+43NzczAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NYN9fX34SkpK/Do6Op8AAAAAPj4+nKurq///////vb29/0JCQroAAAAAOTk5eGFhYfX/////Ozs7+DU1NR0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2EzMzM/8zMzP/VVVVAwAAAAA3NzeKn5+f//////+SkpL7Nzc3gQAAAABAQEAEMzMz/zMzM/81NTX3////AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////AQAAAAAAAAAAAAAAADQ0NGd7e3v0/////0JCQvg2NjZCAAAAAAAAAABVVVUDNjY2TFVVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1IjMzM/9vb2/9MzMz/1VVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2TDQ0NPE2NjYTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///D///wAf//8AH//+AB///AAP//gAB//wAAf/4AAH/8AAB/+AAAP/gAAD/wAAA/8AAAP/AAAD/wAAAf4AAAH+AAAB/gAAAf4AAAD/EAAA//AAAP/wAAD/8AAA//AAAP/wAAn/8AAP//AAD//wgg//8IIP//uDH///g////8f/8=',
+        handHold: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NhMzMzM8NTU1XDQ0NHA1NTV5MzMzaTQ0NFk0NDRJNjY2OTMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDyUMzMz/1hYWO50dHTyjIyM+JSUlPuDg4P2cnJy8WNjY+9VVVXvMzMz/zc3N1gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7GjMzM//x8fH///////////////////////////////////////////+urq7/PT09xgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODh3dnZ29f///////////////////////////////////////////////5qamvw5OTmOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0OzMzM/7f39//////////////////////////////////////////////////a2tr8DQ0NFMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzM0szMzP/0tLS//////////////////////////////////////////////////////9HR0fyMzMzKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NiZAQEC4SkpK9NPT0////////////////////////////////////////////////////////////zg4OPkzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODhtPT099J2dnfv6+vr/////////////////////////////////////////////////////////////////SUlJ8Tc3NyoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7ekJCQvjr6+v///////////////////////////////////////////////////////////////////////////98fHz1MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMygzMzP/5+fn/////////////////////////////////////////////////////////////////////////////////7S0tP9CQkKyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPT09k5eXl/v/////////////////////////////////////////////////////////////////////////////////////6urq/zk5OfSAgIACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDzp4ODg////////////////////////////////////////////////////////////////////////////////////////////T09P8DMzMzcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASUlJBzY2Nvz+/v7///////////////////////////////////////////////////////////////////////////////////////////+Pj4/5NjY2fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTUrSUlJ8f///////////////6enp/+rq6v//////////////////////////////////////////////////////////////////////8bGxv9CQkLIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NE9nZ2fw////////////////MzMz/3h4eP//////////////////////////////////////////////////////////////////////39/f/z8/P+YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1ZoGBgfP///////////////8zMzP/ubm5///////////////////////////////////////////////////////////////////////39/f/ODg4+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRPMzMz/+fn5///////+/v7/zMzM//z8/P///////////////////////////////////////////////////////////////////////r6+v81NTX7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7Ozt9MzMz/4eHh/ZGRkb+MzMz/////////////////////////////////////////////////////////////////////////////f39/zU1NfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzMZNTU1fDc3N786Ojr5///////////////////////////////////////////////////////////////////////////x8fH/OTk59QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2NFRUVO///////////////////////////////////////////////////////////////////////////+Li4v8+Pj7mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTU/W1tb7f///////////////zMzM/+kpKT////////////Nzc3/q6ur////////////MzMz/39/f///////wsLC/z8/P8UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADc3NyUzMzP/+/v7//////+bm5v/MzMz//39/f///////////zMzM/9vb2////////39/f8zMzP/k5OT//f39/8zMzP/MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJCQpIzMzP/f39/9TMzM/9DQ0P3///////////5+fn/MzMz/93d3f//////y8vL/zQ0NPwzMzP/MzMz/z4+Po8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHE0NDRnNTU1ajMzM//4+Pj//////4WFhfozMzP/z8/P//Pz8/8zMzP/NTU1ajc3Nw41NTUYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8kDMzM/9KSkryOjo65TU1NUgzMzP/MzMz/z4+PosAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1MDY2Nj1AQEAEAAAAADMzMwUzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////wA///4AH//8AB///AAf//gAH//wAB//wAAf/4AAH/8AAB/+AAAf/gAAD/4AAA/8AAAP/AAAD/wAAA/8AAAP/AAAD/4AAA//AAAP/8AAD//AAA//wAAP/+AAH//wAD///gH///8T/////////////////8='
+    };
+
+
 
     //--------------------------------------------------------
-    //AgImgDrawer: 核心
+    // AgImgDrawer: 核心
     //--------------------------------------------------------
     /**
      * 绘图器构造函数
@@ -55,18 +86,20 @@
             return;
         }
 
-        this.option = option;
-        this.drawType = DRAWER_TYPE.rect;
-        this.mode = DRAWER_MODE.browse;
         this.containerId = containerId;
+        this.option = option;
+        this.mode = DRAWER_MODE.browse;
+        this.drawType = DRAWER_TYPE.rect;
         this.canvas = null;
         this.maskEle = null;
         this.drawingItem = null;//正在绘制的对象
         this.originWidth = null;
         this.originHeight = null;
         this.drawable = false;  //是否是可绘制状态
+        this.dragDirectly = true;  //是否可以使用鼠标左键直接拖拽
         this.selectable = true; //是否允许选择对象
         this.selectedItems = null;
+        this.editDirectly = false;  //仅在编辑模式有效：是否可以直接对画布上的对象编辑，如果为false则需摁住ctrl键操作对象
         this.backgroundUrl = null;
         this.backgroundImage = null;
         this.zoom = 1;
@@ -74,13 +107,17 @@
         this.drawStyle = {  //绘制样式
             fillColor: '#000',
             fillOpacity: 0.2,
-            _fill: 'rgba(0, 0, 0, 0.2)',     //根据fillColor和fillOpacity生成
-            borderColor: '#fff',
+            _fill: 'rgba(0, 0, 0, 0)',     //根据fillColor和fillOpacity生成
+            borderColor: '#f04155',
+            borderColorH: '#ffc64b',
             borderWidth: 2,
             _borderWidth: 2,
             fontFamily: 'Microsoft YaHei',
             fontSize: 16,
             fontColor: '#fff',
+            fontColorH: '#000',
+            fontBackColor: 'rgba(240, 65, 85, 0.7)',
+            fontBackColorH: 'rgba(255, 198, 75, 0.7)',
             fontWeight: 'normal',
             fontStyle: 'normal',
             underline: false,
@@ -162,6 +199,7 @@
                 self.setSize(newWidth, newHeight, scale);
             });
             container.dataset.drawable = self.drawable;
+            container.dataset.dragDirectly = self.dragDirectly;
             self.initDrawer(option);
 
             //初始化完成的回调：立即执行会出现获取不到drawer对象的问题
@@ -182,8 +220,6 @@
         var tempLeft, tempTop, tempWidth, tempHeight;
         //是否存在选中项、是否是在画布上单击
         var hasSelect = false, hit = false;
-        //是否按下空格键、是否按下ctrl键
-        var spaceKey = false, ctrlKey = false;
 
         //创建fabric.js实例
         var canvas = self.canvas = new fabric.Canvas(self.canvasEleId);
@@ -207,18 +243,16 @@
             startY = evt.e.offsetY / self.zoom;
         });
         window.addEventListener('mousemove', function(evt) {
-            //编辑模式下按住空格键为移动、按住shift键为框选
-            if(spaceKey || evt.shiftKey) {
-                return;
-            }
+            endX = evt.offsetX / self.zoom;
+            endY = evt.offsetY / self.zoom;
+            _mousePosition.move.x = endX;
+            _mousePosition.move.y = endY;
 
-            if(self.drawable && (self.mode === DRAWER_MODE.draw) && hit && !hasSelect) {
+            if(hit && self.drawable && (self.mode === DRAWER_MODE.draw) && !hasSelect) {
                 if(self.drawingItem) {
                     canvas.remove(self.drawingItem);
                 }
 
-                endX = evt.offsetX / self.zoom;
-                endY = evt.offsetY / self.zoom;
                 tempLeft = (endX > startX) ? startX : endX;
                 tempTop = (endY > startY) ? startY : endY;
 
@@ -267,7 +301,7 @@
                         left: tempLeft,
                         top: tempTop,
                         fontFamily: self.drawStyle.fontFamily,
-                        fontSize: self.drawStyle.fontSize,
+                        fontSize: self.drawStyle.fontSize + 2,
                         fill: self.drawStyle.fontColor,
                         fontWeight: self.drawStyle.fontWeight,
                         fontStyle: self.drawStyle.fontStyle,
@@ -281,8 +315,8 @@
                         selectionColor: 'rgba(255, 204, 0, 0.5)'
                     });
                 }
-                canvas.add(self.drawingItem);
-                canvas.renderAll();
+                self.addObject(self.drawingItem);
+                self.refresh();
             }
         });
         window.addEventListener('mouseup', function(evt) {
@@ -307,17 +341,17 @@
                         self.drawingItem.moveCursor = 'crosshair';
                     }
 
-                    canvas.discardActiveObject();
                     option.afterAdd(self.drawingItem);
                     option.afterDraw(self.drawingItem);
                 }
 
                 self.drawingItem = null;
-                canvas.renderAll();
             }
         });
         canvas.on('mouse:out', function(evt) {
-            hit = false;
+            _mousePosition.move.x = 0;
+            _mousePosition.move.y = 0;
+
         });
 
         //对象事件
@@ -336,90 +370,99 @@
                 strokeWidth: self.drawStyle.borderWidth,
                 fontSize: self.drawStyle.fontSize
             });
-            option.afterAdd(evt.target);
         });
         canvas.on('object:modified', function(evt) {
             var target = evt.target;
             target.modified = true;
             option.afterModify(target);
-            _calcObjSizeAfterScale(target, target.scaleX, target.scaleY);
+            _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
+            _handleAgRectModify(target);
+        });
+        canvas.on('object:moving', function(evt) {
+            _handleAgRectModify(evt.target);
+        });
+        canvas.on('object:scaling', function(evt) {
+            _handleAgRectModify(evt.target);
         });
 
         //选择集事件
         canvas.on('selection:created', function(evt) {
             hasSelect = true;
-
             if(self.drawingItem) {
                 return;
             }
 
             self.selectedItems = evt.target;
-            option.afterSelect(self.getSelection());
+            var aciveObjs = self.getSelection();
+            option.afterSelect(aciveObjs);
+            self.highlightObjects(aciveObjs);
         });
         canvas.on('selection:updated', function(evt) {
             self.selectedItems = evt.target;
-            option.afterSelect(self.getSelection());
+            var aciveObjs = self.getSelection();
+            option.afterSelect(aciveObjs);
+            self.highlightObjects(aciveObjs);
         });
         canvas.on('selection:cleared', function(evt) {
             hasSelect = false;
-
-            //如果是选择集，当选择集清空时将其内的所有对象移除出该选择集，以更新选择集内对象在选择集存在期间移动缩放等操作后的边距、宽高等属性
-            if(self.selectedItems && self.selectedItems.type === 'activeSelection') {
-                self.selectedItems.forEachObject(function(obj) {
-                    self.selectedItems.remove(obj);
-                });
-            }
-
             self.selectedItems = null;
             option.afterCancelSelect();
         });
-        canvas.on('object:scaling', function(evt) {
-            // console.info(evt);
+        canvas.on('before:selection:cleared', function(evt) {
+            self.darkenObjects(self.getSelection());
         });
 
-        //键盘事件监听
+        //键盘事件
         window.addEventListener('keydown', function(evt) {
-            if(evt.target.nodeName === 'input') {
-                return;
-            }
+            if(evt.target.nodeName === 'input')  return;
+
             var keyCode = evt.which;
-            if(keyCode === 46) {    //删除键
-                if(self.mode !== DRAWER_MODE.browse) {
-                    self.removeSelection();
+            if(evt.ctrlKey) {   //ctrl键：编辑模式下摁住可选择物体
+                _ctrlKey = true;
+                if(self.mode === DRAWER_MODE.edit && !self.editDirectly) {
+                    self.setExistObjectInteractive(true);
                 }
-            }else if(keyCode >= 37 && keyCode <= 40 && self.selectedItems && !self.selectedItems.isEditing) {   //方位键
-                if(keyCode === 37) {        //左
-                    _moveItem(self.selectedItems, -1, 0);
-                }else if(keyCode === 39) {  //右
-                    _moveItem(self.selectedItems, 1, 0);
-                }else if(keyCode === 38) {  //上
-                    _moveItem(self.selectedItems, 0, -1);
-                }else if(keyCode === 40) {  //下
-                    _moveItem(self.selectedItems, 0, 1);
+            }else if(keyCode >= 37 && keyCode <= 40) {  //方位键
+                switch(keyCode) {
+                    case 37: _moveItem(self.selectedItems, -1, 0); break;
+                    case 38: _moveItem(self.selectedItems, 0, -1); break;
+                    case 39: _moveItem(self.selectedItems, 1, 0); break;
+                    case 40: _moveItem(self.selectedItems, 0, 1); break;
                 }
-                canvas.renderAll();
-            }else if(keyCode === 32) {  //空格键
-                spaceKey = true;
-                self.canvas.defaultCursor = 'move';
-                self.setSelectable(false, 'move');
-            }else if(keyCode === 16) {  //shift键
-                if(self.mode === DRAWER_MODE.draw) {
-                    ctrlKey = true;
-                    // self.setSelectable(true, 'crosshair');
+                self.refresh();
+            }
+
+            // 快捷键缩放
+            if(_ctrlKey && evt.altKey) {
+                switch(keyCode) {
+                    case 187: self.zoomIn(); break;    //ctrl+alt+[+]
+                    case 189: self.zoomOut(); break;    //ctrl+alt+[-]
+                }
+            }
+
+            // 删除选中对象
+            if(keyCode === 46) {
+                self.removeObjects(self.getSelection());
+                self.cancelSelection();
+            }
+
+            // 复制粘贴对象
+            if(self.mode !== DRAWER_MODE.browse && _ctrlKey) {
+                switch(keyCode) {
+                    case 67: self.copySelectedObject(); break;    //ctrl+C
+                    case 86: self.pasteSelectedObject(); break;    //ctrl+V
                 }
             }
         }, true);
         window.addEventListener('keyup', function(evt) {
             var keyCode = evt.which;
-            if(keyCode === 32) { //空格键
-                spaceKey = false;
-                self.canvas.defaultCursor = self.mode === DRAWER_MODE.draw ? 'crosshair' : 'auto';
-                self.setSelectable(self.mode === DRAWER_MODE.draw || self.mode === DRAWER_MODE.edit, 'move');
-            }else if(keyCode === 16) {  //shift键
-                if(self.mode === DRAWER_MODE.draw) {
-                    ctrlKey = false;
-                    // self.setSelectable(false);
+            if(evt.ctrlKey) {    //ctrl键：编辑模式下弹起取消可选择
+                _ctrlKey = false;
+                if(self.mode === DRAWER_MODE.edit && !self.editDirectly) {
+                    self.setExistObjectInteractive(false, false);
                 }
+            }else if(keyCode === 84) {  //T键，进入浏览模式
+                self.setMode(DRAWER_MODE.browse);
             }
         }, true);
     };
@@ -434,24 +477,29 @@
             return;
         }
         this.mode = mode;
-        // this.cancelSelection();
+        this.cancelSelection();
 
         if(mode === DRAWER_MODE.browse) {
-            this.canvas.defaultCursor  = 'auto';
-            this.drawable = false;
             this.maskEle.style.display = 'block';
-            document.getElementById(this.containerId).dataset.drawable = false;
+            this.canvas.defaultCursor = 'auto';
+            this.canvas.selection = false;
+            this.drawable = false;
+            this.setExistObjectInteractive(false);
+            document.getElementById(this.containerId).dataset.dragDirectly = true;
         }else if(mode === DRAWER_MODE.edit) {
-            this.canvas.defaultCursor  = 'auto';
-            this.drawable = true;
             this.maskEle.style.display = 'none';
-            this.setSelectable(true, 'move');
-            document.getElementById(this.containerId).dataset.drawable = true;
+            this.canvas.defaultCursor = 'auto';
+            this.canvas.selection = true;
+            this.drawable = false;
+            this.setExistObjectInteractive(this.editDirectly);
+            document.getElementById(this.containerId).dataset.dragDirectly = false;
         }else if(mode === DRAWER_MODE.draw) {
-            this.canvas.defaultCursor  = 'crosshair';
-            this.drawable = true;
             this.maskEle.style.display = 'none';
-            document.getElementById(this.containerId).dataset.drawable = true;
+            this.canvas.defaultCursor = 'crosshair';
+            this.canvas.selection = false;
+            this.drawable = true;
+            this.setExistObjectInteractive(false);
+            document.getElementById(this.containerId).dataset.dragDirectly = false;
         }
     };
 
@@ -577,32 +625,110 @@
 
     /**
      * 添加一个对象
+     * @deprecated
      * @param object
      */
     global.AgImgDrawer.prototype.add = function(object) {
+        console.warn('This method has been deprecated, please consider using addObject !');
+        this.addObject(object);
+    };
+
+    /**
+     * 添加一个对象
+     * @param object
+     */
+    global.AgImgDrawer.prototype.addObject = function(object) {
         this.canvas.add(object);
+        object.labelObject && this.canvas.add(object.labelObject);
+        _bindEvtForObject(object, this);
+        this.option.afterAdd(object);
+    };
+
+    /**
+     * 添加多个对象
+     * @param objects
+     */
+    global.AgImgDrawer.prototype.addObjects = function(objects) {
+        for(var i = 0, len = objects.length; i < len; i++) {
+            this.addObject(objects[i]);
+        }
+    };
+
+    /**
+     * 删除一个对象
+     * @deprecated
+     * @param object
+     */
+    global.AgImgDrawer.prototype.remove = function(object) {
+        console.warn('This method has been deprecated, please consider using removeObject !');
+        this.removeObject(object);
     };
 
     /**
      * 删除一个对象
      * @param object
      */
-    global.AgImgDrawer.prototype.remove = function(object) {
+    global.AgImgDrawer.prototype.removeObject = function(object) {
         var objects = [object];
-        if(this.option.beforeDelete(objects) === false) return;
+        if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
 
         if(object instanceof fabric.Object && this.canvas.contains(object)) {
-            this.option.afterDelete(objects);
+            this.option.afterDelete(objects, _ctrlKey);
             this.canvas.remove(object);
         }
     };
 
     /**
-     * 获取所选中的对象
-     * @return {*|fabric.Object}
+     * 删除多个对象
+     * @param objects
      */
-    global.AgImgDrawer.prototype.getSelection = function() {
-        return this.canvas.getActiveObjects();
+    global.AgImgDrawer.prototype.removeObjects = function(objects) {
+        if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
+        var success = [], tmp;
+        for(var i = 0, len = objects.length; i < len; i++) {
+            tmp = objects[i];
+            this.canvas.remove(tmp);
+            success.push(tmp);
+        }
+        this.option.afterDelete(success, _ctrlKey);
+    };
+
+    /**
+     * 获取画布上所有对象
+     * @param {object} exclude - 过滤规则（依据对象的类型），默认匹配自定义标签对象之外的所有对象
+     * @return {Array[fabric.Object]}
+     */
+    global.AgImgDrawer.prototype.getObjects = function(exclude) {
+        var result = [];
+        exclude = _mergeObject({
+            'ag-label': true
+        }, exclude);
+        this.canvas.forEachObject(function(obj, index, objs) {
+            if(!exclude[obj.type] && !exclude[obj.agType]) {
+                result.push(obj);
+            }
+        });
+        return result;
+    };
+
+    /**
+     * 获取所选中的对象
+     * @param {object} exclude - 过滤规则，默认匹配自定义标签对象之外的所有对象
+     * @return {Array[fabric.Object]}
+     */
+    global.AgImgDrawer.prototype.getSelection = function(exclude) {
+        var result = [], tmp;
+        exclude = _mergeObject({
+            'ag-label': true
+        }, exclude);
+        var activeObjs = this.canvas.getActiveObjects();
+        for(var i = 0, len = activeObjs.length; i < len; i++) {
+            tmp = activeObjs[i];
+            if(!exclude[tmp.type] && !exclude[tmp.agType]) {
+                result.push(tmp);
+            }
+        }
+        return result;
     };
 
     /**
@@ -610,6 +736,8 @@
      */
     global.AgImgDrawer.prototype.cancelSelection = function() {
         this.canvas.discardActiveObject();
+        var activeObject = this.canvas.getActiveObject();
+        activeObject && this.removeObject(activeObject);
         this.canvas.renderAll();
     };
 
@@ -617,27 +745,7 @@
      * 删除所选中的对象
      */
     global.AgImgDrawer.prototype.removeSelection = function() {
-        var activeObjs = this.canvas.getActiveObjects();
-
-        if(this.option.beforeDelete(activeObjs) === false) return;
-
-        var len = activeObjs.length;
-        for(var i = 0; i < len; i++) {
-            this.canvas.remove(activeObjs[i]);
-        }
-
-        this.canvas.discardActiveObject();
-        this.option.afterDelete(activeObjs);
-    };
-
-    /**
-     * 清空绘图板
-     */
-    global.AgImgDrawer.prototype.clear = function() {
-        var self = this;
-        self.option.afterClear(self.getObjects());
-        self.canvas.clear();
-        self.setBackgroundImage(self.backgroundImage);
+        this.removeObjects(this.getSelection());
     };
 
     /**
@@ -649,39 +757,87 @@
     };
 
     /**
+     * 序列化对象为WKT字符串，序列化取左上角，右下角
+     * @param object
+     * @return {string}
+     */
+    global.AgImgDrawer.prototype.serializeObject = function(object) {
+        var w, h, l, t, ltPoint, rbPoint;
+        w = object.width;
+        h = object.height;
+        l = object.left;
+        t = object.top;
+        ltPoint = [l, t];
+        rbPoint = [l + w, t + h];
+        return 'BOX(' + ltPoint.join(' ') + ',' + rbPoint.join(' ') + ')';
+    };
+
+    /**
+     * 序列化多个对象
+     * @return {Array[string]}
+     */
+    global.AgImgDrawer.prototype.serializeObjects = function(objects) {
+        var wkts = [];
+        if(objects && objects.length) {
+            for(var i = 0, len = objects.length; i < len; i++) {
+                wkts.push(this.serializeObject(objects[i]));
+            }
+        }
+        return wkts;
+    };
+
+    /**
+     * 清空绘图板
+     */
+    global.AgImgDrawer.prototype.clear = function() {
+        this.option.afterClear(this.canvas.getObjects());
+        this.canvas.clear();
+        this.setBackgroundImage(this.backgroundImage);
+    };
+
+    /**
+     * 刷新绘图器
+     */
+    global.AgImgDrawer.prototype.refresh = function() {
+        this.canvas.renderAll();
+    };
+
+    /**
      * 定位对象至视图中央：缩放、平移
+     * [先平移再缩放]
      * @param object
      */
     global.AgImgDrawer.prototype.locate = function(object) {
         var self = this;
 
-        //计算缩放比例
-        var minObjValue = (object.width > object.height) ? object.height : object.width;
-        var tarScale = 120 / minObjValue;
-        AgImgLarger.zoom(self.containerId, tarScale, function(newWidth, newHeight, scale) {
-            self.setSize(newWidth, newHeight, scale);
+        // 平移
+        var container = document.getElementById(self.containerId);
+        var conL = parseFloat(container.style.marginLeft);
+        var conT = parseFloat(container.style.marginTop);
+        conL = conL ? conL : 0;
+        conT = conT ? conT : 0;
 
-            //动画结束之后再平移
-            setTimeout(function() {
-                var container = document.getElementById(self.containerId);
-                var conL = parseFloat(container.style.marginLeft);
-                var conT = parseFloat(container.style.marginTop);
-                conL = conL ? conL : 0;
-                conT = conT ? conT : 0;
+        var clientRect = container.getBoundingClientRect();
+        var conParent = container.parentNode;
+        var conPWidth = parseFloat(conParent.clientWidth);
+        var conPHeight = parseFloat(conParent.clientHeight);
+        var tempHalfW = object.width * object.zoomX / 2;
+        var tempHalfH = object.height * object.zoomY / 2;
 
-                var clientRect = container.getBoundingClientRect();
-                var conParent = container.parentNode;
-                var conPWidth = parseFloat(conParent.clientWidth);
-                var conPHeight = parseFloat(conParent.clientHeight);
-                var tempHalfW = object.width * object.zoomX / 2;
-                var tempHalfH = object.height * object.zoomY / 2;
+        var newMarginL = conL - clientRect.left - object.left * object.zoomX - tempHalfW + conPWidth / 2;
+        var newMarginT = conT - clientRect.top - object.top * object.zoomY - tempHalfH + conPHeight / 2;
+        container.style.marginLeft = newMarginL + 'px';
+        container.style.marginTop = newMarginT + 'px';
 
-                var newMarginL = conL - clientRect.left - object.left * object.zoomX - tempHalfW + conPWidth / 2;
-                var newMarginT = conT - clientRect.top - object.top * object.zoomY - tempHalfH + conPHeight / 2;
-                container.style.marginLeft = newMarginL + 'px';
-                container.style.marginTop = newMarginT + 'px';
-            }, 400);
-        });
+        // 以物体中间位置为中心缩放
+        setTimeout(function() {
+            var pointer = _getEleCenterPoint(conParent);
+            var minObjValue = (object.width > object.height) ? object.height : object.width;
+            var tarScale = 200 / minObjValue;
+            AgImgLarger.zoom(self.containerId, tarScale, pointer, function(newWidth, newHeight, scale) {
+                self.setSize(newWidth, newHeight, scale);
+            });
+        }, 400);
     };
 
     /**
@@ -699,17 +855,36 @@
         this.maskEle.style.height = height + 'px';
 
         //根据缩放比例为矩形框设置边框粗细
-        this.canvas.forEachObject(function(obj, index, objs) {
+        /*this.canvas.forEachObject(function(obj, index, objs) {
             _setStrokeWidthByScale(obj, zoom);
-        });
+        });*/
         this.canvas.renderAll();
+    };
+
+    /**
+     * 获取绘图器缩放比例
+     * @deprecated
+     * @return {Number|*}
+     */
+    global.AgImgDrawer.prototype.getScale = function() {
+        console.warn('This method has been deprecated, please consider using getZoom !');
+        return this.getZoom();
+    };
+    /**
+     * 设置绘图器缩放比例
+     * @deprecated
+     * @param scale
+     */
+    global.AgImgDrawer.prototype.setScale = function(scale) {
+        console.warn('This method has been deprecated, please consider using setZoom !');
+        this.setZoom(scale);
     };
 
     /**
      * 获取绘图器缩放比例
      * @return {Number|*}
      */
-    global.AgImgDrawer.prototype.getScale = function() {
+    global.AgImgDrawer.prototype.getZoom = function() {
         return this.zoom;
     };
 
@@ -717,10 +892,39 @@
      * 设置绘图器缩放比例
      * @param scale
      */
-    global.AgImgDrawer.prototype.setScale = function(scale) {
+    global.AgImgDrawer.prototype.setZoom = function(scale) {
         var self = this;
-        AgImgLarger.zoom(self.containerId, scale, function(newWidth, newHeight, scale) {
+        var container = document.getElementById(self.containerId);
+        var conParent = container.parentNode;
+        var pointer = _getEleCenterPoint(conParent);
+        AgImgLarger.zoom(self.containerId, scale, pointer, function(newWidth, newHeight, scale) {
             self.setSize(newWidth, newHeight, scale);
+        });
+    };
+
+    /**
+     * 放大
+     */
+    global.AgImgDrawer.prototype.zoomIn = function() {
+        var self = this;
+        var container = document.getElementById(self.containerId);
+        var conParent = container.parentNode;
+        var pointer = _getEleCenterPoint(conParent);
+        AgImgLarger.zoomIn('myDrawer', pointer, function(newWidth, newHeight, scale) {
+            drawer.setSize(newWidth, newHeight, scale);
+        });
+    };
+
+    /**
+     * 缩小
+     */
+    global.AgImgDrawer.prototype.zoomOut = function() {
+        var self = this;
+        var container = document.getElementById(self.containerId);
+        var conParent = container.parentNode;
+        var pointer = _getEleCenterPoint(conParent);
+        AgImgLarger.zoomOut('myDrawer', pointer, function(newWidth, newHeight, scale) {
+            drawer.setSize(newWidth, newHeight, scale);
         });
     };
 
@@ -728,19 +932,16 @@
      * 重置绘图器大小
      */
     global.AgImgDrawer.prototype.resetSize = function() {
-        var self = this;
-        self.setSize(self.originWidth, self.originHeight, 1);
+        var orW = this.originWidth;
+        var orH = this.originHeight;
+        var container = document.getElementById(this.containerId);
+        container.style.width = orW + 'px';
+        container.style.height = orH + 'px';
+        _centerElement(container, orW, orH);
 
-        var container = document.getElementById(self.containerId);
-        container.style.width = self.originWidth + 'px';
-        container.style.height = self.originHeight + 'px';
-        // container.style.marginLeft = '0px';
-        // container.style.marginTop = '0px';
-        _centerElement(container, self.originWidth, self.originHeight);
-        // container.data('scale', 10);
-
-        AgImgLarger.reset(self.containerId, self.originWidth, self.originHeight);
-        self.setScale(1);
+        AgImgLarger.reset(this.containerId, orW, orH);
+        this.setSize(orW, orH, 1);
+        this.setZoom(1);
     };
 
     /**
@@ -807,123 +1008,260 @@
     };
 
     /**
-     * 添加物体
-     * @param {fabric.Object} object - fabric.Circle、fabric.Rect、fabric.Text、fabric.Point、fabric.Polyline、fabric.Polygon等，
-     * 详情请参见{@link http://fabricjs.com/docs/}
-     */
-    global.AgImgDrawer.prototype.addObject = function(object) {
-        this.canvas.add(object);
-        this.canvas.renderAll();
-    };
-
-    /**
-     * 获取画布上所有对象
-     * @param {object} exclude - 过滤规则，默认匹配所有
-     * @return {Array[fabric.Object]}
-     */
-    global.AgImgDrawer.prototype.getObjects = function(exclude) {
-        exclude = _mergeObject({
-            'rect': false,
-            'i-text': false,
-            'text': false,
-            'group': false,
-            'notmodified': false
-        }, exclude);
-
-        var result = [];
-        this.canvas.forEachObject(function(obj, index, objs) {
-            if(!exclude[obj.type] && !(exclude.notmodified && !obj.modified)) {
-                result.push(obj);
-            }
-        });
-        return result;
-    };
-
-    /**
-     * 序列化所有绘制对象，序列化取左上角，右下角
-     * @param {object} exclude - 过滤规则，默认匹配所有
-     * @return {Array[string]}
-     */
-    global.AgImgDrawer.prototype.serializeObjects = function(exclude) {
-        exclude = _mergeObject({
-            'rect': false,
-            'i-text': false,
-            'text': false,
-            'group': false,
-            'notmodified': false
-        }, exclude);
-
-        var wkts = [];
-        var w, h, l, t, ltPoint, rbPoint;
-        this.canvas.forEachObject(function(obj, index, objs) {
-            if(!exclude[obj.type] && !(exclude.notmodified && !obj.modified)) {
-                w = obj.width;
-                h = obj.height;
-                l = obj.left;
-                t = obj.top;
-
-                ltPoint = [l, t];
-                rbPoint = [l + w, t + h];
-                wkts.push('BOX(' + ltPoint.join(' ') + ',' + rbPoint.join(' ') + ')');
-            }
-        });
-        return wkts;
-    };
-
-    /**
-     * 刷新绘图器
-     */
-    global.AgImgDrawer.prototype.refresh = function() {
-        this.canvas.renderAll();
-    };
-
-    /**
-     * 设置是否允许选择对象
+     * 设置画布上已存在的对象是否可交互
      * @param flag {boolean}
-     * @param cursor {string}
+     * @param includeActiveObj {boolean} - 当前设置是否对当前选中对象生效
      */
-    global.AgImgDrawer.prototype.setSelectable = function(flag, cursor) {
-        this.selectable = flag;
-        this.canvas.selection = flag;
-        if(flag) {
+    global.AgImgDrawer.prototype.setExistObjectInteractive = function(flag, includeActiveObj) {
+        includeActiveObj = includeActiveObj === false ? false : true;
+        if(flag === true) {
+            this.canvas.selection = true;
             this.canvas.forEachObject(function(obj, index, objs) {
-                obj.selectable = true;
-                obj.hoverCursor = cursor;
-                obj.moveCursor = cursor;
+                if(obj.agType !== 'ag-label') {
+                    obj.selectable = true;
+                    obj.evented = true;
+                    // obj.hoverCursor = cursor;
+                    // obj.moveCursor = cursor;
+                }
             });
         }else {
-            this.cancelSelection();
+            if(includeActiveObj) {
+                this.cancelSelection();
+            }
+            this.canvas.selection = false;
             this.canvas.forEachObject(function(obj, index, objs) {
-                obj.selectable = false;
-                obj.hoverCursor = cursor;
-                obj.moveCursor = cursor;
+                if(obj.agType !== 'ag-label' && !obj.selected) {
+                    obj.selectable = false;
+                    obj.evented = false;
+                    // obj.hoverCursor = cursor;
+                    // obj.moveCursor = cursor;
+                }
             });
         }
     };
 
     /**
-     * 设置画布上已有对象是否可被选择
-     * @param ifSelectable {boolean}
+     * 设置编辑模式下是否可直接编辑对象
+     * @param flag
      */
-    global.AgImgDrawer.prototype.setExistObjectSelectable = function(ifSelectable, cursor) {
-        if(ifSelectable) {
-            this.canvas.forEachObject(function(obj, index, objs) {
-                obj.selectable = true;
-                obj.hoverCursor = cursor;
-                obj.moveCursor = cursor;
-            });
-        }else {
-            this.cancelSelection();
-            this.canvas.forEachObject(function(obj, index, objs) {
-                obj.selectable = false;
-                obj.hoverCursor = cursor;
-                obj.moveCursor = cursor;
-            });
+    global.AgImgDrawer.prototype.setEditDirectly = function(flag) {
+        flag = flag === true ? true : false;
+        this.editDirectly = flag;
+        if(this.mode === DRAWER_MODE.edit) {
+            if(flag) {
+                this.setExistObjectInteractive(true, false);
+            }else {
+                this.setExistObjectInteractive(false, false);
+            }
         }
+    };
+
+
+    //--------------------------------------------------------
+    // 工具方法
+    //--------------------------------------------------------
+    /**
+     * 矩形对象，继承fabric.Rect(实例继承)
+     * @param option - 构造数据
+     * @param text - 矩形框标签
+     * @returns {*}
+     */
+    global.AgImgDrawer.prototype.createRect = function(option) {
+        option = _mergeObject({
+            width: 100,
+            height: 100,
+            left: 0,
+            top: 0,
+            fill: this.drawStyle._fill,
+            stroke: this.drawStyle.borderColor,
+            strokeWidth: this.drawStyle.borderWidth,
+            originStrokeWidth: this.drawStyle.borderWidth
+        }, option);
+        var rect = new fabric.Rect(option);
+        rect.agType = 'ag-rect';
+        return rect;
+    };
+
+    /**
+     * 标签对象，组合了fabric.Rect、fabric.Text和fabric.Group
+     * @param text
+     * @param left
+     * @param top
+     */
+    global.AgImgDrawer.prototype.createLabel = function(text, left, top) {
+        text = text ? text : '';
+        var paddingX = 10, paddingY = 6;
+        var textObj = new fabric.Text(text.toString(), {
+            originX: 'center',
+            originY: 'center',
+            fontFamily: this.drawStyle.fontFamily,
+            fontSize: this.drawStyle.fontSize,
+            fill: this.drawStyle.fontColor,
+            fontWeight: this.drawStyle.fontWeight,
+            fontStyle: this.drawStyle.fontStyle,
+            strokeWidth: 0,
+            charSpacing: 1,
+            editingBorderColor: '#0099FF',
+            selectionColor: 'rgba(255, 204, 0, 0.5)'
+        });
+        var rectObj = this.createRect({
+            width: textObj.width + paddingX * 2,
+            height: textObj.height + paddingY * 2,
+            originX: 'center',
+            originY: 'center',
+            fill: this.drawStyle.fontBackColor,
+            strokeWidth: 0
+        });
+        var label = new fabric.Group([rectObj, textObj], {
+            left: left,
+            top: top - rectObj.height,
+            _originLeft: left,
+            _originTop: top - rectObj.height,
+            hasBorders: true,
+            hasControls: false,
+            selectable: false
+        });
+        label.agType = 'ag-label';
+        return label;
+    };
+
+    /**
+     * 矩形对象，并带有标签
+     * @param text - 矩形框标签
+     * @param option - 构造数据
+     * @param option.showLabel - 标签显示方式：true，false, auto
+     * @returns {*}
+     */
+    global.AgImgDrawer.prototype.createRectWithLabel = function(text, option) {
+        var self = this;
+        var rect = self.createRect(option);
+        var label = self.createLabel(text, rect.left, rect.top);
+        var showMode;
+        switch(option.showLabel) {
+            case true: showMode = true; break;
+            case false: showMode = false; break;
+            default: showMode = 'auto';
+        }
+        label.targetObject = rect;
+        label.showMode = showMode;
+        label.set('visible', showMode !== 'auto' ? showMode : false);
+        rect.agType = 'ag-rect';
+        rect.labelObject = label;
+        return rect;
+    };
+
+    /**
+     * 高亮显示对象
+     * @param objects
+     */
+    global.AgImgDrawer.prototype.highlightObjects = function(objects) {
+        var self = this;
+        if(_beforeActiveObjs) {
+            self.darkenObjects(_beforeActiveObjs);
+        }
+
+        if(objects && objects.length) {
+            _beforeActiveObjs = objects;
+
+            var object, type;
+            for(var i = 0; i < objects.length; i++) {
+                object = objects[i];
+                type = object.type;
+                if(type === 'activeSelection' || type === 'group') {
+                    object.forEachObject(function(obj, index, objs) {
+                        self.highlightObjects([obj]);
+                    });
+                }else {
+                    object.set({
+                        stroke: self.drawStyle.borderColorH
+                    });
+                    var labelObj = object.labelObject;
+                    if(labelObj) {
+                        // 将标签对象加入选择集使其可以被一起拖动
+                        if(labelObj.showMode === true) {
+                            var activeObject = self.canvas.getActiveObject();
+                            activeObject.type === 'activeSelection' && activeObject.add(labelObj);
+                        }
+
+                        labelObj.set({
+                            left: object.left,
+                            top: object.top - labelObj.height,
+                        }).setCoords();
+                        labelObj.item(0).set({
+                            fill: this.drawStyle.fontBackColorH
+                        });
+                        labelObj.item(1).set({
+                            fill: this.drawStyle.fontColorH
+                        });
+                    }
+                }
+            }
+            self.refresh();
+        }
+    };
+
+    /**
+     * 取消对象的高亮显示
+     * @param objects
+     */
+    global.AgImgDrawer.prototype.darkenObjects = function(objects) {
+        if(objects && objects.length) {
+            var self = this;
+            var object, type;
+            for(var i = 0; i < objects.length; i++) {
+                object = objects[i];
+                type = object.type;
+                if(type === 'activeSelection' || type === 'group') {
+                    object.forEachObject(function(obj, index, objs) {
+                        self.darkenObjects([obj]);
+                    });
+                }else {
+                    object.set({
+                        stroke: self.drawStyle.borderColor
+                    });
+                    var labelObj = object.labelObject;
+                    if(labelObj) {
+                        labelObj.item(0).set({
+                            fill: this.drawStyle.fontBackColor
+                        });
+                        labelObj.item(1).set({
+                            fill: this.drawStyle.fontColor
+                        });
+                    }
+                }
+            }
+            self.refresh();
+        }
+    };
+
+    /**
+     * 复制选中的对象
+     */
+    global.AgImgDrawer.prototype.copySelectedObject = function() {
+        _clipboard = _copyObject(this.canvas.getActiveObject(), this);
+    };
+
+    /**
+     * 粘贴选中的对象
+     */
+    global.AgImgDrawer.prototype.pasteSelectedObject = function() {
+        if(_clipboard) {
+            _setCopyObjectPosition();
+            this.addObjects(_clipboard);
+            this.refresh();
+            _clipboard = _copyObject(_clipboard, this);
+        }
+    };
+
+    /**
+     * 清除剪贴板
+     */
+    global.AgImgDrawer.prototype.clearClipboard = function() {
+        _clipboard = null;
     };
 
     //--------------------------------------------------------
-    //辅助方法
+    // 内部方法
     //--------------------------------------------------------
     /**
      * 创建canvas元素
@@ -980,11 +1318,13 @@
         fabric.Object.prototype.cornerSize = 6;
         fabric.Object.prototype.cornerColor = '#00CCFF';
         fabric.Object.prototype.borderColor = '#00CCFF';
+        fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
         fabric.Object.prototype.setControlVisible('mb', false);
         fabric.Object.prototype.setControlVisible('mr', false);
         fabric.Object.prototype.setControlVisible('mt', false);
+        fabric.Object.prototype.setControlVisible('mtr', false);
     }
 
     /**
@@ -995,15 +1335,18 @@
      * @param offsetY
      */
     function _moveItem(item, offsetX, offsetY) {
-        if(!item || item.length === 0) {
+        if(!item || item.length === 0 || item.isEditing) {
             return;
         }
 
         offsetX = parseInt(offsetX);
         offsetY = parseInt(offsetY);
 
-        item.left = item.left + offsetX;
-        item.top = item.top + offsetY;
+        item.set({
+            left: item.left + offsetX,
+            top: item.top + offsetY
+        }).setCoords();
+        _handleAgRectModify(item);
     }
 
     /**
@@ -1032,13 +1375,16 @@
      * @param scale - 当前缩放比例
      */
     function _setStrokeWidthByScale(item, scale) {
+        if(item.agType === 'ag-label') {
+            return;
+        }
+
         if(item.isType('rect') || item.isType('ellipse')) {
             var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
             item.set('strokeWidth', strokeWidth).setCoords();
         }else if(item.isType('group')) {
             item.forEachObject(function(obj, index, objs) {
                 _setStrokeWidthByScale(obj, scale);
-                console.info(item.calcCoords());
             });
         }
     }
@@ -1123,44 +1469,68 @@
      * @param target
      * @param scaleX
      * @param scaleY
+     * @param isOutest - 是否是最外层对象
      * @private
      */
-    function _calcObjSizeAfterScale(target, scaleX, scaleY) {
+    function _calcObjSizeAfterScale(target, scaleX, scaleY, isOutest) {
+        var newProps;
         var type = target.type;
-        if(type === 'activeSelection' || type === 'group') {// 选择集、组
-            target.set({
-                width: target.getScaledWidth(),
-                height: target.getScaledHeight(),
+        if(target.agType === 'ag-label') {// 自定义的标签类型不做缩放
+            newProps = {
+                width: target.width,
+                height: target.height,
                 scaleX: 1,
                 scaleY: 1
+            };
+        }else if(type === 'activeSelection' || type === 'group') {// 选择集、组
+            newProps = {
+                width: target.width * scaleX,
+                height: target.height * scaleY,
+                scaleX: 1,
+                scaleY: 1
+            };
+            if(!isOutest) {
+                newProps.left = target.left * scaleX;
+                newProps.top = target.top * scaleY;
+            }
+            target.forEachObject(function(obj, index, objs) {
+                _calcObjSizeAfterScale(obj, scaleX, scaleY, false);
             });
-            target.forEachObject(function (obj, index, objs) {
-                _calcObjSizeAfterScale(obj, scaleX, scaleY);
-            });
-        }else if(type === 'rect') {// 对象
+        }else if(type === 'text' || type === 'i-text' || type === 'textbox') {// 文本对象：不做缩放
+            newProps = {
+                scaleX: 1,
+                scaleY: 1
+            };
+        }else {
             var offsetSWX = target.strokeWidth * (scaleX - 1);
             var offsetSWY = target.strokeWidth * (scaleY - 1);
-            if(target.group) {
-                target.set({
+            if(type === 'ellipse') {
+                newProps = {
+                    rx: target.rx * scaleX + offsetSWX,
+                    ry: target.ry * scaleY + offsetSWY,
+                };
+                if(target.group) {
+                    newProps.left = target.left * scaleX;
+                    newProps.top = target.top * scaleY;
+                }else {
+                    newProps.scaleX = 1;
+                    newProps.scaleY = 1;
+                }
+            }else {// 对象
+                newProps = {
                     width: target.width * scaleX + offsetSWX,
                     height: target.height * scaleY + offsetSWY,
-                    left: target.left * scaleX,
-                    top: target.top * scaleY
-                }).setCoords();
-            }else {
-                target.set({
-                    width: target.getScaledWidth() + offsetSWX * 2,
-                    height: target.getScaledHeight() + offsetSWY * 2,
-                    scaleX: 1,
-                    scaleY: 1
-                }).setCoords();
+                };
+                if(target.group) {
+                    newProps.left = target.left * scaleX;
+                    newProps.top = target.top * scaleY;
+                }else {
+                    newProps.scaleX = 1;
+                    newProps.scaleY = 1;
+                }
             }
-        }else {
-            target.set({
-                left: target.left * scaleX,
-                top: target.top * scaleY
-            }).setCoords();
         }
+        target.set(newProps).setCoords();
     }
 
     /**
@@ -1217,6 +1587,190 @@
             return 'rgba(' + sColorChange.join(',') + ', '+ opacity + ')';
         }else{
             return 'rgba(0, 0, 0, ' + opacity + ')';
+        }
+    }
+
+    /**
+     * 获取元素中间位置对应的屏幕坐标
+     * @param ele
+     * @returns {{x: number, y: number}}
+     * @private
+     */
+    function _getEleCenterPoint(ele) {
+        var pClientRect = ele.getBoundingClientRect();
+        return {
+            x: pClientRect.left + pClientRect.width / 2,
+            y: pClientRect.top + pClientRect.height / 2,
+        };
+    }
+
+    function _handleAgRectModify(target) {
+        var type = target.type;
+        if(type === 'activeSelection' || type === 'group') {
+            target.forEachObject(function(obj, index, objs) {
+                _handleAgRectModify(obj);
+            });
+        }else {
+            var labelObj = target.labelObject;
+            if(labelObj) {
+                labelObj.set({
+                    left: target.left,
+                    top: target.top - labelObj.height,
+                }).setCoords();
+            }
+        }
+    }
+
+    function _getCursorStyle(base64) {
+        return 'url("' + base64 + '"), auto';
+    }
+
+    function _bindEvtForObject(target, _this) {
+        var lObj = target.labelObject;
+        target.on('mouseover', function(evt) {
+            if((_this.editDirectly || evt.e.ctrlKey) && !target.selected) {
+                if(lObj && lObj.showMode !== false) {
+                    lObj.item(0).set({
+                        fill: _this.drawStyle.fontBackColor
+                    });
+                    lObj.item(1).set({
+                        fill: _this.drawStyle.fontColor
+                    });
+                    lObj.set('visible', true);
+                }
+                target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                _this.refresh();
+            }
+        });
+        target.on('mouseout', function(evt) {
+            if(!target.selected) {
+                if(lObj && lObj.showMode === 'auto') {
+                    lObj.set('visible', false);
+                }
+                target.moveCursor = target.hoverCursor = 'auto';
+                _this.refresh();
+            }
+        });
+        target.on('selected', function(evt) {
+            if(lObj) {
+                lObj.item(0).set({
+                    fill: _this.drawStyle.fontBackColorH
+                });
+                lObj.item(1).set({
+                    fill: _this.drawStyle.fontColorH
+                });
+                lObj.set('visible', lObj.showMode === 'auto' ? true : lObj.showMode);
+            }
+            target.selected = true;
+            target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
+            _this.highlightObjects([target]);
+        });
+        target.on('deselected', function(evt) {
+            if(lObj) {
+                lObj.set('visible', lObj.showMode === 'auto' ? false : lObj.showMode);
+            }
+            if(!_this.editDirectly) {
+                target.selectable = false;
+                target.evented = false;
+            }
+            target.selected = false;
+            _this.darkenObjects([target]);
+        });
+        target.on('removed', function(evt) {
+            lObj && _this.canvas.remove(lObj);
+        });
+    }
+
+    function _copyObject(target, _this) {
+        var copys = [];
+        if(target) {
+            if(target.type === 'activeSelection') {
+                target.forEachObject(function(obj, index, objs) {
+                    if(obj.agType !== 'ag-label') {
+                        copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
+                    }
+                });
+            }else if(target instanceof Array) {
+                var tmp;
+                for(var i = 0, len = target.length; i < len; i++) {
+                    tmp = target[i];
+                    tmp.clone(function(obj) {
+                        tmp.labelObject && (obj.labelObject = tmp.labelObject);
+                        if(tmp._copyFromSelection) {
+                            copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
+                        }else {
+                            copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, false, _this));
+                        }
+                    });
+                }
+            }else {
+                copys.push(_copyWithLabelObject(target, target.left + 15, target.top + 15, false, _this));
+            }
+        }
+        return copys;
+    }
+
+    function _copyWithLabelObject(target, tarLeft, tarTop, fromSelection, _this) {
+        var copy = null, tarLableObj = target.labelObject;
+        if(tarLableObj) {
+            tarLableObj.clone(function(copyLabelObj) {
+                tarLableObj.showMode && (copyLabelObj.showMode = tarLableObj.showMode);
+                target.clone(function(obj) {
+                    copyLabelObj.set({
+                        left: tarLeft,
+                        top: tarTop,
+                        visible: copyLabelObj.showMode === true ? true : false
+                    });
+                    copyLabelObj.item(0).set('fill', _this.drawStyle.fontBackColor);
+                    copyLabelObj.item(1).set('fill', _this.drawStyle.fontColor);
+                    obj.set({
+                        left: tarLeft,
+                        top: tarTop + copyLabelObj.height,
+                        stroke: _this.drawStyle.borderColor,
+                        _copyFromSelection: fromSelection
+                    });
+                    obj.labelObject = copyLabelObj;
+                    copy = obj;
+                });
+            });
+        }else {
+            target.clone(function(obj) {
+                obj.set({
+                    left: tarLeft,
+                    top: tarTop,
+                    stroke: _this.drawStyle.borderColor,
+                    _copyFromSelection: fromSelection
+                });
+                copy = obj;
+            });
+        }
+        return copy;
+    }
+
+    function _setCopyObjectPosition() {
+        if(_clipboard instanceof Array) {
+            var mX = _mousePosition.move.x;
+            var mY = _mousePosition.move.y;
+            var tmp, tmpLabel;
+            for(var i = 0, len = _clipboard.length; i < len; i++) {
+                tmp = _clipboard[i];
+                tmpLabel = tmp.labelObject;
+                if(tmpLabel) {
+                    tmpLabel.set({
+                        left: mX,
+                        top: mY
+                    });
+                    tmp.set({
+                        left: mX,
+                        top: mY + tmpLabel.height
+                    });
+                }else {
+                    tmp.set({
+                        left: mX,
+                        top: mY
+                    });
+                }
+            }
         }
     }
 })(window);

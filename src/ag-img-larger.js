@@ -31,7 +31,7 @@
             _registeWheelEvt(ele, afterWheel);
             ele.dataset.enlargable = true;
         },
-        zoomIn: function(eleId, afterWheel) {
+        zoomIn: function(eleId, pointer, callback) {
             var ele = document.getElementById(eleId);
             if(ele.dataset.enlargable) {
                 var scale = parseInt(ele.dataset.scale);
@@ -42,10 +42,10 @@
                     return;
                 }
                 scale += scaleStep;
-                _zoomElement(ele, scale, afterWheel);
+                _zoomElement(pointer, ele, scale, callback);
             }
         },
-        zoomOut: function(eleId, afterWheel) {
+        zoomOut: function(eleId, pointer, callback) {
             var ele = document.getElementById(eleId);
             if(ele.dataset.enlargable) {
                 var scale = parseInt(ele.dataset.scale);
@@ -56,10 +56,10 @@
                     return;
                 }
                 scale -= scaleStep;
-                _zoomElement(ele, scale, afterWheel);
+                _zoomElement(pointer, ele, scale, callback);
             }
         },
-        zoom: function(eleId, scale, afterWheel) {
+        zoom: function(eleId, scale, pointer, callback) {
             scale = Math.round((isNaN(scale) ? 1 : scale) * 10);
             scale = (scale % 2 === 0) ? scale : scale + 1;
 
@@ -74,7 +74,7 @@
             var ele = document.getElementById(eleId);
             var scaleStep = _calcScaleStep(scale, SCALE_STEP);
             ele.dataset.scaleStep = scaleStep;
-            _zoomElement(ele, scale, afterWheel);
+            _zoomElement(pointer, ele, scale, callback);
         },
         reset: function(eleId, newOriginW, newOriginH) {
             var ele = document.getElementById(eleId);
@@ -154,25 +154,30 @@
         var oldMT = parseFloat(ele.style.marginTop);
         var oldW = parseFloat(ele.dataset.width);
         var oldH = parseFloat(ele.dataset.height);
-
-        var pBoundRect = ele.parentNode.getBoundingClientRect();
-        var relaMX = pointer.x - pBoundRect.left;
-        var relaMY = pointer.y - pBoundRect.top;
-        var zoomRationX = (relaMX - oldML) / oldW;
-        var zoomRationY = (relaMY - oldMT) / oldH;
-
         var newW = parseFloat(ele.dataset.originWidth) * scale / 10;
         var newH = parseFloat(ele.dataset.originHeight) * scale / 10;
+
+        var newML, newMT;
+        if(pointer) {
+            var pBoundRect = ele.parentNode.getBoundingClientRect();
+            var relaMX = pointer.x - pBoundRect.left;
+            var relaMY = pointer.y - pBoundRect.top;
+            var zoomRationX = (relaMX - oldML) / oldW;
+            var zoomRationY = (relaMY - oldMT) / oldH;
+            newML = oldML - zoomRationX * (newW - oldW);
+            newMT = oldMT - zoomRationY * (newH - oldH);
+        }else {
+            newML = oldML - (newW - oldW) / 2;
+            newMT = oldMT - (newH - oldH) / 2;
+        }
+
+        ele.dataset.scale = scale;
         ele.dataset.width = newW;
         ele.dataset.height = newH;
-        ele.dataset.scale = scale;
-
         ele.style.width = newW + 'px';
         ele.style.height = newH + 'px';
-        // ele.style.marginLeft = oldML - (newW - oldW) / 2 + 'px';
-        // ele.style.marginTop = oldMT - (newH - oldH) / 2 + 'px';
-        ele.style.marginLeft = oldML - zoomRationX * (newW - oldW) + 'px';
-        ele.style.marginTop = oldMT - zoomRationY * (newH - oldH) + 'px';
+        ele.style.marginLeft = newML+ 'px';
+        ele.style.marginTop = newMT + 'px';
 
         if(callback instanceof Function) {
             callback(newW, newH, scale / 10);

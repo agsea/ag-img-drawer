@@ -15,8 +15,6 @@
 }
 .aDrawer{
     position: absolute;
-    /*background: url("../demo/trouble1.jpg");
-    background-size: 100% 100%;*/
 }
 .aDrawer.show{
     display: block;
@@ -30,7 +28,8 @@
     left: 0px;
     top: 0px;
     background-color: transparent;
-    z-index: 1;
+    z-index: 2;
+    cursor: url("./images/cursor/hand-open.ico"), auto;
 }
 .aDrawer-mask.dark{
     background-color: rgba(6, 6, 6, 0.6);
@@ -41,11 +40,11 @@
     height: 50px;
     left: calc(50% - 25px);
     top: calc(50% - 25px);
-    background: url("loading.png") 0px 0px no-repeat;
+    background: url("./images/loading.png") 0px 0px no-repeat;
     background-size: 50px;
     transition: transform 1s ease-out;
     animation: time-loading 3.5s infinite linear;
-    z-index: 2;
+    z-index: 1;
 }
 @keyframes time-loading{
     0%{

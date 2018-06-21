@@ -8,7 +8,8 @@
     <!--<link rel="stylesheet" href="../assets/zTree_v3/css/zTreeStyle/zTreeStyle.css">-->
     <link rel="stylesheet" href="assets/zTree_v3/css/metroStyle/metroStyle.css">
 
-    <link rel="stylesheet" href="../src/ag-img-drawer.css">
+    <link rel="stylesheet" href="../dist/2.1.0/ag-imgdrawer-2.1.0.min.css">
+    <!--<link rel="stylesheet" href="../src/ag-img-drawer.css">-->
 
     <link rel="stylesheet" href="photo-edit.css">
     <link rel="stylesheet" href="ztree-custom/myStyle.css">
@@ -182,9 +183,6 @@
                             <button class="side-btn" onclick="changeBackground2()">
                                 <span class="icon-export">更换背景2</span>
                             </button>
-                            <button class="side-btn" onclick="changeBackground3()">
-                                <span class="icon-export">更换背景3</span>
-                            </button>
                             <button class="side-btn" onclick="light()">
                                 <span class="icon-export">高亮</span>
                             </button>
@@ -216,6 +214,16 @@
             </div>
         </div>
     </div>
+    <!-- 快捷键说明 -->
+    <div id="shortcutDescr" style="display: none; padding: 15px; color: #007d86; font-family: fantasy; font-size: 14px; line-height: 30px;">
+        1.选择物体：ctrl(按住) + 鼠标左键（编辑模式下可用） <br>
+        2.拖拽画布：T	 <br>
+        3.删除物体：Delete <br>
+        4.复制选中物体：ctrl + C <br>
+        5.粘贴选中物体：ctrl + V	<br>
+        6.以屏幕为中心放大：ctrl + alt + 加号 <br>
+        7.以屏幕为中心缩小：ctrl + alt + 减号 <br>
+    </div>
     <!-- 导出预览 -->
     <div class="preview hide" id="preview">
         <div class="img-wrapper">
@@ -232,10 +240,11 @@
     <!--<script type="text/javascript" src="../assets/zTree_v3/js/jquery.ztree.excheck.js"></script>-->
     <script type="text/javascript" src="assets/zTree_v3/js/jquery.ztree.exedit.js"></script>
 
-    <script src="../src/lib/fabric-2.3.2/fabric.js"></script>
+    <script src="../dist/2.1.0/ag-imgdrawer-2.1.0.min.js"></script>
+    <!--<script src="../src/lib/fabric-2.3.2/fabric.js"></script>
     <script src="../src/ag-img-dragger.js"></script>
     <script src="../src/ag-img-larger.js"></script>
-    <script src="../src/ag-img-drawer.js"></script>
+    <script src="../src/ag-img-drawer.js"></script>-->
 
     <script src="object-tree.js"></script>
     <script src="photo-edit.js"></script>

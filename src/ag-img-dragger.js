@@ -7,9 +7,7 @@
     global.AgImgDragger = {
         init: function(eleId) {
             var dragEle = document.getElementById(eleId);
-            if(dragEle.dataset.draggable) {
-                return;
-            }
+            if(dragEle.initializeDrag) return;
 
             var container = dragEle.parentNode;
 
@@ -24,9 +22,6 @@
                 if(evt.which === 1) {
                     hit = true;
                     dragEle.classList.remove('ag-smooth');
-                    if(dragEle.dataset.drawable === 'false') {
-                        dragEle.style.cursor = 'move';
-                    }
 
                     //当前鼠标位置
                     var mouseX = evt.clientX || evt.pageX || evt.screenX;
@@ -50,7 +45,7 @@
 
             // 鼠标移动(为优化体验，将鼠标移动事件注册至全局)
             window.addEventListener('mousemove', function(evt) {
-                if((dragEle.dataset.drawable === 'false' || spaceKey) && hit) {
+                if((dragEle.dataset.dragDirectly === 'true' || spaceKey) && hit) {
                     //当前鼠标位置
                     var mouseX = evt.clientX || evt.pageX || evt.screenX;
                     var mouseY = evt.clientY || evt.pageY || evt.screenY;
@@ -64,35 +59,39 @@
             });
 
             // 鼠标弹起
-            dragEle.addEventListener('mouseup', function(evt) {
+            window.addEventListener('mouseup', function(evt) {
                 if(evt.which === 1) {
                     hit = false;
                     dragEle.classList.add('ag-smooth');
-                    if(dragEle.dataset.drawable === 'false') {
-                        dragEle.style.cursor = 'auto';
-                    }
                 }
             });
 
             // 键盘摁下
-            document.body.addEventListener('keydown', function(evt) {
+            window.addEventListener('keydown', function(evt) {
                 if(evt.which === 32 && evt.target.localName !== 'input') {// 空格键
                     evt.preventDefault();
-                    dragEle.style.cursor = 'move';
                     spaceKey = true;
+                    if(dragEle.dataset.dragDirectly === 'false') {
+                        var maskEle = dragEle.querySelector('.aDrawer-mask');
+                        maskEle.style.display = 'block';
+                    }
                 }
             });
 
             // 键盘弹起
-            document.body.addEventListener('keyup', function(evt) {
+            window.addEventListener('keyup', function(evt) {
                 if(evt.which === 32) {
-                    dragEle.style.cursor = 'auto';
+                    evt.preventDefault();
                     spaceKey = false;
+                    if(dragEle.dataset.dragDirectly === 'false') {
+                        var maskEle = dragEle.querySelector('.aDrawer-mask');
+                        maskEle.style.display = 'none';
+                    }
                 }
             });
 
             // 记录初始化状态
-            dragEle.dataset.draggable = true;
+            dragEle.initializeDrag = true;
         }
     };
 })(window);

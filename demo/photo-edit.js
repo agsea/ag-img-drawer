@@ -19,8 +19,9 @@ $().ready(function() {
             // drawTest();
             drawRects();
             drawer.setMode('draw');
+            drawer.setEditDirectly(false);
             // drawer.setExistObjectSelectable(false);
-            // drawer.setSelectable(false);
+            // drawer.setActiveObject(agRect);
         },
         afterAdd: function(object) {
             // console.info('添加', object);
@@ -33,11 +34,12 @@ $().ready(function() {
         afterModify(object) {
             // console.info('修改', object);
         },
-        beforeDelete: function (objects) {
-            // console.info(objects);
-            return false;
+        beforeDelete: function (objects, ctrlKey) {
+            console.info('删除前', ctrlKey, objects);
+            // return false;
         },
-        afterDelete: function(objects) {
+        afterDelete: function(objects, ctrlKey) {
+            // console.info('删除', ctrlKey, objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
@@ -66,23 +68,16 @@ function toggleSide(ele) {
 }
 
 function zoomIn() {
-    AgImgLarger.zoomIn('myDrawer', function(newWidth, newHeight, scale) {
-        drawer.setSize(newWidth, newHeight, scale);
-    });
+    drawer.zoomIn();
 }
 function zoomOut() {
-    AgImgLarger.zoomOut('myDrawer', function(newWidth, newHeight, scale) {
-        drawer.setSize(newWidth, newHeight, scale);
-    });
+    drawer.zoomOut();
 }
 function changeBackground() {
     drawer.setBackgroundImageWithUpdateSize('img_2.jpg');
 }
 function changeBackground2() {
     drawer.setBackgroundImageWithUpdateSize('img_1.jpg');
-}
-function changeBackground3() {
-    drawer.setBackgroundImageWithUpdateSize('img_2.jpg');
 }
 
 //初始化滑动开关
@@ -235,7 +230,7 @@ $('#tips').click(function() {
         closeBtn: 2,
         shade: 0.4,
         skin: 'layui-layer-rim', //加上边框
-        content: '<div style="padding: 15px; color: #007d86; font-size: 14px; line-height: 30px;"><p>1.在任何状态下按住空格键和鼠标左键可拖动图片</p><p>2.在任何状态下滚动鼠标滚轮缩放图片</p><p>3.在编辑和绘制状态下按住shift键框选对象或点击多选</p></div>'
+        content: $('#shortcutDescr')
     });
 });
 
@@ -252,26 +247,30 @@ function serializeObjects() {
 var groupCounter = 0;
 var groupObjectMap = {};
 function drawRects() {
-    //按组聚合矩形框和标签
-    var group, rect, label;
     for(var i = 0; i < 2; i++) {
-        var left = 100 * i;
-        var top = 100 * i;
-
-        var w = 100;//randomFrom(15, 50);
-        var h = 100;//randomFrom(15, 50);
-        var style = getLabelStyle(w, h);
-        rect = createRect(w, h, 0, 0);
-        label = crateLabel(i + 1, style.left, style.top, style.fontSize);
-        group = new fabric.Group([rect, label], {
-            left: left,
-            top: top
+        groupCounter++;
+        var agRect = drawer.createRectWithLabel('绿箭口香糖~', {
+            width: 200,
+            height: 200,
+            left: 200 * i,
+            top: 200 * i + 50,
+            // showLabel: true
         });
-        group.index = ++groupCounter;
-        drawer.getFabricCanvas().add(group);
+        drawer.addObject(agRect);
 
-        groupObjectMap['groupObj' + groupCounter] = group;
+        groupObjectMap['groupObj' + groupCounter] = agRect;
     }
+
+    var rectObj = new fabric.Rect({
+        width: 150,
+        height: 150,
+        fill: 'red',
+    });
+    var testObj = new fabric.Group([rectObj], {
+        left: 400,
+        top: 400
+    });
+    drawer.addObject(testObj);
 
     //console.info(groupObjectMap);
 }
@@ -367,108 +366,39 @@ function getLabelStyle(w, h) {
 }
 
 function light() {
-    highlightGroupObject(groupObjectMap['groupObj4']);
+    highlightGroupObject(groupObjectMap['groupObj1']);
 }
 function dark() {
-    darkenGroupObject(groupObjectMap['groupObj4']);
+    darkenGroupObject(groupObjectMap['groupObj1']);
 }
+var locateIndex = 1, locateIndexBefore;
 function locate() {
-    highlightGroupObject(groupObjectMap['groupObj' + 3]);
-    drawer.locate(groupObjectMap['groupObj' + 3]);
+    locateIndex = locateIndex > 2 ? 1 : locateIndex;
+
+    locateIndexBefore && darkenGroupObject(groupObjectMap['groupObj' + locateIndexBefore]);
+    highlightGroupObject(groupObjectMap['groupObj' + locateIndex]);
+    drawer.locate(groupObjectMap['groupObj' + locateIndex]);
+
+    locateIndexBefore = locateIndex;
+    locateIndex += 1;
 }
 function refresh() {
     drawer.refresh();
 }
 
-//绘制样式
-var DrawStyle = {
-    fill: 'rgba(0, 0, 0, 0.2)',
-    borderColor: '#fff',
-    borderHColor: '#ff461f',    //高亮样式
-    borderWidth: 2,
-    fontFamily: 'Microsoft YaHei',
-    fontSize: 16,
-    fontColor: '#fff',
-    fontHColor: '#ff461f',      //高亮样式
-    fontWeight: 'normal',
-    fontStyle: 'normal',
-    strokeColor: '#fff',
-    strokeWidth: 0
-};
-
-/**
- * 创建矩形要素
- * @param width
- * @param height
- * @param left
- * @param top
- * @return {*}
- */
-function createRect(width, height, left, top) {
-    return new fabric.Rect({
-        width: width,
-        height: height,
-        left: left,
-        top: top,
-        fill: DrawStyle.fill,
-        stroke: DrawStyle.borderColor,
-        strokeWidth: DrawStyle.borderWidth  //(Math.random() > 0.5) ? 3 : 1
-    });
-}
-
-/**
- * 创建标签
- * @param label
- */
-function crateLabel(label, left, top, fontSize) {
-    return new fabric.IText(label.toString(), {
-        left: left,
-        top: top,
-        fontFamily: DrawStyle.fontFamily,
-        fontSize: fontSize,//DrawStyle.fontSize,
-        fill: DrawStyle.fontColor,
-        fontWeight: DrawStyle.fontWeight,
-        fontStyle: DrawStyle.fontStyle,
-        stroke: DrawStyle.strokeColor,
-        strokeWidth: DrawStyle.strokeWidth,
-        charSpacing: 1,
-        editingBorderColor: '#0099FF',
-        selectionColor: 'rgba(255, 204, 0, 0.5)'
-    });
-}
-
 /**
  * 高亮显示组对象
  */
-function highlightGroupObject(group) {
-    var objects = group.getObjects();
-    for(var i = 0; i < objects.length; i++) {
-        if(objects[i].type === 'rect' || objects[i].type === 'ellipse') {
-            objects[i].set('stroke', DrawStyle.borderHColor);
-        }
-        if(objects[i].type === 'i-text') {
-            objects[i].set('fill', DrawStyle.fontHColor);
-        }
-    }
-    group.moveTo(groupCounter);
-    drawer.refresh();
+function highlightGroupObject(obj) {
+    console.info(obj);
+    drawer.highlightObjects([obj]);
 }
 
 /**
  * 取消高亮显示组对象
  */
-function darkenGroupObject(group) {
-    var objects = group.getObjects();
-    for(var i = 0; i < objects.length; i++) {
-        if(objects[i].type === 'rect' || objects[i].type === 'ellipse') {
-            objects[i].set('stroke', DrawStyle.borderColor);
-        }
-        if(objects[i].type === 'i-text') {
-            objects[i].set('fill', DrawStyle.fontColor);
-        }
-    }
-    group.moveTo(group.index - 1);
-    drawer.refresh();
+function darkenGroupObject(obj) {
+    drawer.darkenObjects([obj]);
 }
 
 function randomFrom(lowerValue,upperValue) {

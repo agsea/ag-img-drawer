@@ -17,7 +17,7 @@ var jshintCfg = require('./jshint-config.json');
 // 获取package内容
 var pkgJSON = require('./package.json');
 // 项目信息配置
-var targetDir = 'dist';
+var targetDir = `dist/${pkgJSON.version}`;
 var moduleName = 'AgImgDrawer';
 var timeYMDHMS = formatDate('{year}/{month}/{day} {hours}:{minutes}:{seconds}', new Date());   //日期格式1
 var timeYMDHM = formatDate('{year}/{month}/{day} {hours}:{minutes}', new Date());   //日期格式2
@@ -84,8 +84,8 @@ gulp.task('cleanTemp', ['concatJs', 'concatJs_min'], function() {
 
 // 拷贝资源等静态文件以及无需经过上述任务流处理的文件
 gulp.task('copyStatic', function() {
-    return gulp.src(['src/loading.png'])
-        .pipe(gulp.dest(`${targetDir}`));
+    return gulp.src(['src/images/**'])
+        .pipe(gulp.dest(`${targetDir}/images`));
 });
 
 

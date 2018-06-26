@@ -38,6 +38,15 @@ gulp.task('minCss', function() {
         .pipe(gulp.dest(`${targetDir}/`));
 });
 
+gulp.task('minJs_fabric', function() {
+    // 生成合并后压缩的临时代码
+    return gulp.src('src/lib/fabric-2.3.2/fabric.js')
+        .pipe(concat(`all-temp.min.js`))
+        .pipe(uglify())
+        .pipe(rename(`fabric-custom.min.js`))
+        .pipe(gulp.dest(`src/lib/fabric-2.3.2`));
+});
+
 // 合并js：包含合并的临时目标js、代码检查
 gulp.task('concatJs_tmp', function() {
     // 生成合并后不压缩的临时代码
@@ -68,7 +77,7 @@ gulp.task('concatJs', ['concatJs_tmp'], function() {
 });
 // 合并压缩的临时js与依赖库
 gulp.task('concatJs_min', ['concatJs_tmp_min'], function() {
-    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.min.js`, './src/lib/fabric-2.3.2/fabric.min.js'])
+    return gulp.src([`./${targetDir}/temp/${pkgJSON.name}-${pkgJSON.version}-temp.min.js`, './src/lib/fabric-2.3.2/fabric-custom.min.js'])
         .pipe(concat('all.min.js'))
         .pipe(inject.prepend(uglifyBanner))
         .pipe(inject.append(footerStr))
@@ -90,6 +99,7 @@ gulp.task('copyStatic', function() {
 
 
 // 汇总任务
-gulp.task(`${targetDir}`, ['minCss', 'concatJs_tmp', 'concatJs_tmp_min', 'concatJs', 'concatJs_min', 'copyStatic', 'cleanTemp']);
+gulp.task('task_all', ['minCss', 'concatJs_tmp', 'concatJs_tmp_min', 'concatJs', 'concatJs_min', 'copyStatic', 'cleanTemp']);
+// gulp.task('task_all', ['minJs_fabric']);
 // 执行任务
-gulp.task('default', [`${targetDir}`]);
+gulp.task('default', ['task_all']);

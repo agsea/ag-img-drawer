@@ -174,7 +174,7 @@ function deleteObjectByNode(treeNode) {
  * @param ifLight - 是否高亮
  */
 function setObjectLight(object, ifLight) {
-    if(object.isType('rect') || object.isType('circle') || object.isType('ellipse')) {
+    /*if(object.isType('rect') || object.isType('circle') || object.isType('ellipse')) {
         object.set('stroke', ifLight ? DrawStyle.borderHColor : DrawStyle.borderColor);
     }else if(object.isType('text') || object.isType('i-text')) {
         object.set('fill', ifLight ? DrawStyle.fontHColor: DrawStyle.fontColor);
@@ -182,7 +182,13 @@ function setObjectLight(object, ifLight) {
         object.forEachObject(function(obj, index, objs) {
             setObjectLight(obj, ifLight);
         });
-    }
+    }*/
+    this.drawer.setActiveObject(object);
+    /*if(ifLight) {
+        drawer.highlightObjects([object])
+    }else {
+        drawer.darkenObjects([object]);
+    }*/
 }
 
 /**

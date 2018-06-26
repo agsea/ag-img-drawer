@@ -16,10 +16,9 @@ $().ready(function() {
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            // drawTest();
-            drawRects();
             drawer.setMode('draw');
-            drawer.setEditDirectly(false);
+            drawer.setEditDirectly(true);
+            drawRects();
             // drawer.setExistObjectSelectable(false);
             // drawer.setActiveObject(agRect);
         },
@@ -31,8 +30,11 @@ $().ready(function() {
             // console.info('绘制', object);
             drawer.setActiveObject(object);
         },
-        afterModify(object) {
-            // console.info('修改', object);
+        afterModify(object, isSingle) {
+            console.info('修改', object, isSingle);
+        },
+        afterEnter(object, isSingle, isModified) {
+            console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
             console.info('删除前', ctrlKey, objects);
@@ -47,6 +49,12 @@ $().ready(function() {
         },
         afterSelect: function(objects) {
             // console.info('选中', objects[0]);
+        },
+        afterCopy: function(objects, source) {
+            console.info('复制', objects);
+        },
+        afterPaste: function(objects) {
+            console.info('粘贴', objects[0].agTestProp);
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -256,6 +264,8 @@ function drawRects() {
             top: 200 * i + 50,
             // showLabel: true
         });
+        // agRect.agTestProp = 666;
+        agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
 
         groupObjectMap['groupObj' + groupCounter] = agRect;

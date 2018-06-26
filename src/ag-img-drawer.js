@@ -9,18 +9,21 @@
         width: 600,     //若要指定绘图器宽高，请将 autoAdjustment 设为false
         height: 560,
         padding: 30,    // 图片与容器的边距
-        backgroundUrl: null,  //背景图片
+        backgroundUrl: null,  //背景图片地址
         autoAdjustment: true,   //根据容器大小自动调整绘图器宽高
         loadingMask: true,  //加载动画遮罩
         afterInitialize: function() {},
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
-        afterModify: function (object) {},        //修改回调，携带一个参数为所修改的对象
-        beforeDelete: function () {},       //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下，方法返回false则取消删除
-        afterDelete: function(objects) {},   //删除回调，携带参数：删除的对象数组、ctrl键是否按下
-        afterClear: function(objects) {},          //清空回调，携带一个参数为包含所有对象的数组
-        afterSelect: function(objects) {},         //选中物体回调，携带一个参数为所选中的对象数组
-        afterCancelSelect: function() {}    //取消选中物体回调
+        afterModify: function(object, isSingle) {},         //修改回调，携带参数：所修改的对象、是否是单个对象
+        afterEnter: function(object, isSingle, isModified) {},          //按回车键回调，携带参数：当前选中对象、是否是单个对象、是否修改
+        beforeDelete: function() {},                //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下、方法返回false则取消删除
+        afterDelete: function(objects) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
+        afterClear: function(objects) {},           //清空回调，携带一个参数为包含所有对象的数组
+        afterSelect: function(objects) {},          //选中物体回调，携带一个参数为所选中的对象数组
+        afterCancelSelect: function() {},           //取消选中物体回调
+        afterCopy: function(objects) {},            //复制选中对象的回调，携带参数：所复制的对象集合
+        afterPaste: function(objects) {},           //粘贴选中对象的回调，携带一个参数为所粘贴的对象集合
     };
     // 绘图器模式
     // 浏览模式（browse）: 默认只能像浏览图片一样操作绘图器，无法对画布上的对象做任何操作（遮罩显示），可直接拖拽画布
@@ -68,7 +71,6 @@
     };
 
 
-
     //--------------------------------------------------------
     // AgImgDrawer: 核心
     //--------------------------------------------------------
@@ -113,9 +115,9 @@
             borderWidth: 2,
             _borderWidth: 2,
             fontFamily: 'Microsoft YaHei',
-            fontSize: 16,
+            fontSize: 14,
             fontColor: '#fff',
-            fontColorH: '#000',
+            fontColorH: '#333',
             fontBackColor: 'rgba(240, 65, 85, 0.7)',
             fontBackColorH: 'rgba(255, 198, 75, 0.7)',
             fontWeight: 'normal',
@@ -216,6 +218,7 @@
     global.AgImgDrawer.prototype.initDrawer = function(option) {
         var self = this;
         //鼠标绘制相关变量
+        var drawParam;
         var startX, startY, endX, endY;
         var tempLeft, tempTop, tempWidth, tempHeight;
         //是否存在选中项、是否是在画布上单击
@@ -239,16 +242,24 @@
             self.drawingItem = null;
             self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
 
-            startX = evt.e.offsetX / self.zoom;
-            startY = evt.e.offsetY / self.zoom;
+            var conEle = document.getElementById(self.containerId);
+            var conParentClient = conEle.parentNode.getBoundingClientRect();
+            var marginL = parseInt(conEle.style.marginLeft);
+            var marginT = parseInt(conEle.style.marginTop);
+            drawParam = {
+                offsetX: conParentClient.left + marginL,
+                offsetY: conParentClient.top + marginT
+            };
+            startX = (evt.e.pageX - drawParam.offsetX) / self.zoom;
+            startY = (evt.e.pageY - drawParam.offsetY) / self.zoom;
         });
         window.addEventListener('mousemove', function(evt) {
-            endX = evt.offsetX / self.zoom;
-            endY = evt.offsetY / self.zoom;
-            _mousePosition.move.x = endX;
-            _mousePosition.move.y = endY;
-
+            _mousePosition.move.x = evt.offsetX / self.zoom;
+            _mousePosition.move.y = evt.offsetY / self.zoom;
             if(hit && self.drawable && (self.mode === DRAWER_MODE.draw) && !hasSelect) {
+                endX = (evt.pageX - drawParam.offsetX) / self.zoom;
+                endY = (evt.pageY - drawParam.offsetY) / self.zoom;
+
                 if(self.drawingItem) {
                     canvas.remove(self.drawingItem);
                 }
@@ -315,7 +326,9 @@
                         selectionColor: 'rgba(255, 204, 0, 0.5)'
                     });
                 }
-                self.addObject(self.drawingItem);
+                self.drawingItem.isNew = true;
+                self.canvas.add(self.drawingItem);
+                _bindEvtForObject(self.drawingItem, self);
                 self.refresh();
             }
         });
@@ -373,8 +386,9 @@
         });
         canvas.on('object:modified', function(evt) {
             var target = evt.target;
+            var isSingle = target.type !== 'activeSelection' && target.type !== 'group';
             target.modified = true;
-            option.afterModify(target);
+            option.afterModify(target, isSingle);
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
             _handleAgRectModify(target);
         });
@@ -393,12 +407,16 @@
             }
 
             self.selectedItems = evt.target;
+            _setObjectInteractive(evt.target, true, self);
+
             var aciveObjs = self.getSelection();
             option.afterSelect(aciveObjs);
             self.highlightObjects(aciveObjs);
         });
         canvas.on('selection:updated', function(evt) {
             self.selectedItems = evt.target;
+            _setObjectInteractive(evt.target, true, self);
+
             var aciveObjs = self.getSelection();
             option.afterSelect(aciveObjs);
             self.highlightObjects(aciveObjs);
@@ -417,12 +435,22 @@
             if(evt.target.nodeName === 'input')  return;
 
             var keyCode = evt.which;
-            if(evt.ctrlKey) {   //ctrl键：编辑模式下摁住可选择物体
+            if(evt.ctrlKey) {
                 _ctrlKey = true;
-                if(self.mode === DRAWER_MODE.edit && !self.editDirectly) {
+                //ctrl键：编辑模式下摁住可选择物体
+                if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
                     self.setExistObjectInteractive(true);
                 }
-            }else if(keyCode >= 37 && keyCode <= 40) {  //方位键
+            }
+            // 快捷键缩放
+            if(_ctrlKey && evt.altKey) {
+                switch(keyCode) {
+                    case 187: self.zoomIn(); break;    //ctrl+alt+加号
+                    case 189: self.zoomOut(); break;    //ctrl+alt+减号
+                }
+            }
+
+            if(keyCode >= 37 && keyCode <= 40) {  //方位键
                 switch(keyCode) {
                     case 37: _moveItem(self.selectedItems, -1, 0); break;
                     case 38: _moveItem(self.selectedItems, 0, -1); break;
@@ -430,35 +458,37 @@
                     case 40: _moveItem(self.selectedItems, 0, 1); break;
                 }
                 self.refresh();
-            }
-
-            // 快捷键缩放
-            if(_ctrlKey && evt.altKey) {
-                switch(keyCode) {
-                    case 187: self.zoomIn(); break;    //ctrl+alt+[+]
-                    case 189: self.zoomOut(); break;    //ctrl+alt+[-]
+            }else if(keyCode === 46) {// 删除选中对象
+                self.removeObjects(self.getSelection());
+                self.cancelSelection();
+            }else if(keyCode === 67 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 复制对象：ctrl+C
+                self.copySelectedObject();
+            }else if(keyCode === 86 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 粘贴对象：ctrl+V
+                self.pasteSelectedObject();
+            }else if(keyCode === 13) {// 回车
+                var activeObj = self.canvas.getActiveObject();
+                if(activeObj) {
+                    var isSingle = activeObj.type !== 'activeSelection' && activeObj.type !== 'group';
+                    var isModified = activeObj.modified ? activeObj.modified : false;
+                    option.afterEnter(activeObj, isSingle, isModified);
+                }else {
+                    option.afterEnter(null, false, false);
                 }
             }
 
-            // 删除选中对象
-            if(keyCode === 46) {
-                self.removeObjects(self.getSelection());
-                self.cancelSelection();
-            }
-
-            // 复制粘贴对象
+            /*// 复制粘贴对象
             if(self.mode !== DRAWER_MODE.browse && _ctrlKey) {
                 switch(keyCode) {
                     case 67: self.copySelectedObject(); break;    //ctrl+C
                     case 86: self.pasteSelectedObject(); break;    //ctrl+V
                 }
-            }
+            }*/
         }, true);
         window.addEventListener('keyup', function(evt) {
             var keyCode = evt.which;
-            if(evt.ctrlKey) {    //ctrl键：编辑模式下弹起取消可选择
+            if(keyCode === 17) {    //ctrl键：编辑模式下弹起取消可选择
                 _ctrlKey = false;
-                if(self.mode === DRAWER_MODE.edit && !self.editDirectly) {
+                if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
                     self.setExistObjectInteractive(false, false);
                 }
             }else if(keyCode === 84) {  //T键，进入浏览模式
@@ -495,7 +525,7 @@
             document.getElementById(this.containerId).dataset.dragDirectly = false;
         }else if(mode === DRAWER_MODE.draw) {
             this.maskEle.style.display = 'none';
-            this.canvas.defaultCursor = 'crosshair';
+            this.canvas.defaultCursor = 'crossHair';
             this.canvas.selection = false;
             this.drawable = true;
             this.setExistObjectInteractive(false);
@@ -639,7 +669,7 @@
      */
     global.AgImgDrawer.prototype.addObject = function(object) {
         this.canvas.add(object);
-        object.labelObject && this.canvas.add(object.labelObject);
+        object._labelObject && this.canvas.add(object._labelObject);
         _bindEvtForObject(object, this);
         this.option.afterAdd(object);
     };
@@ -911,7 +941,7 @@
         var conParent = container.parentNode;
         var pointer = _getEleCenterPoint(conParent);
         AgImgLarger.zoomIn('myDrawer', pointer, function(newWidth, newHeight, scale) {
-            drawer.setSize(newWidth, newHeight, scale);
+            self.setSize(newWidth, newHeight, scale);
         });
     };
 
@@ -924,7 +954,7 @@
         var conParent = container.parentNode;
         var pointer = _getEleCenterPoint(conParent);
         AgImgLarger.zoomOut('myDrawer', pointer, function(newWidth, newHeight, scale) {
-            drawer.setSize(newWidth, newHeight, scale);
+            self.setSize(newWidth, newHeight, scale);
         });
     };
 
@@ -1090,7 +1120,7 @@
      */
     global.AgImgDrawer.prototype.createLabel = function(text, left, top) {
         text = text ? text : '';
-        var paddingX = 10, paddingY = 6;
+        var paddingX = 8, paddingY = 4;
         var textObj = new fabric.Text(text.toString(), {
             originX: 'center',
             originY: 'center',
@@ -1142,11 +1172,13 @@
             case false: showMode = false; break;
             default: showMode = 'auto';
         }
+        label.hoverCursor = 'auto';
+        label.moveCursor = 'auto';
         label.targetObject = rect;
         label.showMode = showMode;
         label.set('visible', showMode !== 'auto' ? showMode : false);
         rect.agType = 'ag-rect';
-        rect.labelObject = label;
+        rect._labelObject = label;
         return rect;
     };
 
@@ -1175,7 +1207,7 @@
                     object.set({
                         stroke: self.drawStyle.borderColorH
                     });
-                    var labelObj = object.labelObject;
+                    var labelObj = object._labelObject;
                     if(labelObj) {
                         // 将标签对象加入选择集使其可以被一起拖动
                         if(labelObj.showMode === true) {
@@ -1219,7 +1251,7 @@
                     object.set({
                         stroke: self.drawStyle.borderColor
                     });
-                    var labelObj = object.labelObject;
+                    var labelObj = object._labelObject;
                     if(labelObj) {
                         labelObj.item(0).set({
                             fill: this.drawStyle.fontBackColor
@@ -1235,20 +1267,23 @@
     };
 
     /**
-     * 复制选中的对象
+     * 复制选中的对象（除对象的基本组成属性外，仅会额外地复制带有ag前缀的属性，且不复制object和function类型，数组除外）
      */
     global.AgImgDrawer.prototype.copySelectedObject = function() {
-        _clipboard = _copyObject(this.canvas.getActiveObject(), this);
+        var source = this.canvas.getActiveObject();
+        _clipboard = _copyObject(source, this);
+        _clipboard.length && this.option.afterCopy(_clipboard, source);
     };
 
     /**
      * 粘贴选中的对象
      */
     global.AgImgDrawer.prototype.pasteSelectedObject = function() {
-        if(_clipboard) {
+        if(_clipboard.length) {
             _setCopyObjectPosition();
             this.addObjects(_clipboard);
             this.refresh();
+            this.option.afterPaste(_clipboard);
             _clipboard = _copyObject(_clipboard, this);
         }
     };
@@ -1316,8 +1351,10 @@
     function _setGlobalControlStyle() {
         fabric.Object.prototype.transparentCorners = false;
         fabric.Object.prototype.cornerSize = 6;
-        fabric.Object.prototype.cornerColor = '#00CCFF';
-        fabric.Object.prototype.borderColor = '#00CCFF';
+        fabric.Object.prototype.cornerStyle = 'circle';
+        fabric.Object.prototype.cornerColor = '#fff';
+        fabric.Object.prototype.cornerStrokeColor = '#888';
+        // fabric.Object.prototype.borderColor = '#00CCFF';
         fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
@@ -1611,7 +1648,7 @@
                 _handleAgRectModify(obj);
             });
         }else {
-            var labelObj = target.labelObject;
+            var labelObj = target._labelObject;
             if(labelObj) {
                 labelObj.set({
                     left: target.left,
@@ -1626,9 +1663,13 @@
     }
 
     function _bindEvtForObject(target, _this) {
-        var lObj = target.labelObject;
+        // 初始可操作性状态
+        _setObjectInteractive(target, null, _this);
+
+        // 绑定事件
+        var lObj = target._labelObject;
         target.on('mouseover', function(evt) {
-            if((_this.editDirectly || evt.e.ctrlKey) && !target.selected) {
+            if(!target.selected) {
                 if(lObj && lObj.showMode !== false) {
                     lObj.item(0).set({
                         fill: _this.drawStyle.fontBackColor
@@ -1638,8 +1679,13 @@
                     });
                     lObj.set('visible', true);
                 }
-                target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
-                _this.refresh();
+
+                var flag1 = target.isNew;
+                var flag2 = _this.editDirectly || evt.e.ctrlKey;
+                if(flag1 || flag2) {
+                    target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                    _this.refresh();
+                }
             }
         });
         target.on('mouseout', function(evt) {
@@ -1669,15 +1715,39 @@
             if(lObj) {
                 lObj.set('visible', lObj.showMode === 'auto' ? false : lObj.showMode);
             }
-            if(!_this.editDirectly) {
-                target.selectable = false;
-                target.evented = false;
+            if(_this.mode === DRAWER_MODE.draw) {
+                if(!target.isNew) {
+                    target.selectable = false;
+                    target.evented = false;
+                }
+            }else {
+                if(!_this.editDirectly) {
+                    target.selectable = false;
+                    target.evented = false;
+                }
             }
             target.selected = false;
             _this.darkenObjects([target]);
         });
         target.on('removed', function(evt) {
             lObj && _this.canvas.remove(lObj);
+        });
+    }
+
+    function _setObjectInteractive(target, flag, _this) {
+        var selectable, evented;
+        if(flag) {
+            selectable = evented = true;
+        }else {
+            if(_this.mode === DRAWER_MODE.draw) {
+                selectable = evented = target.isNew ? true : false;
+            }else if(_this.mode === DRAWER_MODE.edit) {
+                selectable = evented =_this.editDirectly;
+            }
+        }
+        target.set({
+            selectable: selectable,
+            evented: evented
         });
     }
 
@@ -1695,7 +1765,9 @@
                 for(var i = 0, len = target.length; i < len; i++) {
                     tmp = target[i];
                     tmp.clone(function(obj) {
-                        tmp.labelObject && (obj.labelObject = tmp.labelObject);
+                        _copyFlatAgProps(tmp, obj);
+
+                        tmp._labelObject && (obj._labelObject = tmp._labelObject);
                         if(tmp._copyFromSelection) {
                             copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
                         }else {
@@ -1711,11 +1783,13 @@
     }
 
     function _copyWithLabelObject(target, tarLeft, tarTop, fromSelection, _this) {
-        var copy = null, tarLableObj = target.labelObject;
+        var copy = null, tarLableObj = target._labelObject;
         if(tarLableObj) {
             tarLableObj.clone(function(copyLabelObj) {
                 tarLableObj.showMode && (copyLabelObj.showMode = tarLableObj.showMode);
                 target.clone(function(obj) {
+                    _copyFlatAgProps(target, obj);
+
                     copyLabelObj.set({
                         left: tarLeft,
                         top: tarTop,
@@ -1729,12 +1803,13 @@
                         stroke: _this.drawStyle.borderColor,
                         _copyFromSelection: fromSelection
                     });
-                    obj.labelObject = copyLabelObj;
+                    obj._labelObject = copyLabelObj;
                     copy = obj;
                 });
             });
         }else {
             target.clone(function(obj) {
+                _copyFlatAgProps(target, obj);
                 obj.set({
                     left: tarLeft,
                     top: tarTop,
@@ -1744,7 +1819,24 @@
                 copy = obj;
             });
         }
+        // copy.agType = target.agType;
+        copy.isNew = true;
         return copy;
+    }
+
+    /**
+     * 复制对象的带ag前缀的属性
+     * @private
+     */
+    function _copyFlatAgProps(from, to) {
+        if((typeof from) !== 'object' || (typeof to) !== 'object') return;
+        var tmpVal;
+        for(var key in from) {
+            tmpVal = from[key];
+            if(key.startsWith('ag') && (typeof tmpVal !== 'object' || tmpVal instanceof Array) && typeof tmpVal !== 'function') {
+                to[key] = tmpVal;
+            }
+        }
     }
 
     function _setCopyObjectPosition() {
@@ -1754,15 +1846,15 @@
             var tmp, tmpLabel;
             for(var i = 0, len = _clipboard.length; i < len; i++) {
                 tmp = _clipboard[i];
-                tmpLabel = tmp.labelObject;
+                tmpLabel = tmp._labelObject;
                 if(tmpLabel) {
                     tmpLabel.set({
                         left: mX,
-                        top: mY
+                        top: mY - tmpLabel.height
                     });
                     tmp.set({
                         left: mX,
-                        top: mY + tmpLabel.height
+                        top: mY
                     });
                 }else {
                     tmp.set({

@@ -476,7 +476,6 @@
                     option.afterEnter(null, false, false);
                 }
             }else if(keyCode === 84) {  //T键切换浏览模式
-                this.console.info(self._beforeMode);
                 if(self._beforeMode) {
                     self.setMode(self._beforeMode);
                     self._beforeMode = null;

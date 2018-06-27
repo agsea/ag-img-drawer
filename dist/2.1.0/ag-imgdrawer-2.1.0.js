@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.1.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件 */
-/*! Modified on 2018/06/27 14:05:11 */
+/*! Modified on 2018/06/27 14:15:08 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -578,7 +578,6 @@
                     option.afterEnter(null, false, false);
                 }
             }else if(keyCode === 84) {  //T键切换浏览模式
-                this.console.info(self._beforeMode);
                 if(self._beforeMode) {
                     self.setMode(self._beforeMode);
                     self._beforeMode = null;

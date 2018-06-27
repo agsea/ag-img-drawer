@@ -1,6 +1,6 @@
 ## AgImgDrawer
 
-基于简单而强大的Javascript Canvas库[fabric.js](http://fabricjs.com/) 实现的矢量图形绘制插件
+基于简单而强大的Javascript Canvas库[fabric.js](http://fabricjs.com/)实现的矢量图形绘制插件
 
 
 ## License

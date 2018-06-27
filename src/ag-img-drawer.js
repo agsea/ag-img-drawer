@@ -91,6 +91,7 @@
         this.containerId = containerId;
         this.option = option;
         this.mode = DRAWER_MODE.browse;
+        this._beforeMode = null;
         this.drawType = DRAWER_TYPE.rect;
         this.canvas = null;
         this.maskEle = null;
@@ -474,15 +475,16 @@
                 }else {
                     option.afterEnter(null, false, false);
                 }
-            }
-
-            /*// 复制粘贴对象
-            if(self.mode !== DRAWER_MODE.browse && _ctrlKey) {
-                switch(keyCode) {
-                    case 67: self.copySelectedObject(); break;    //ctrl+C
-                    case 86: self.pasteSelectedObject(); break;    //ctrl+V
+            }else if(keyCode === 84) {  //T键切换浏览模式
+                this.console.info(self._beforeMode);
+                if(self._beforeMode) {
+                    self.setMode(self._beforeMode);
+                    self._beforeMode = null;
+                }else {
+                    self._beforeMode = self.mode;
+                    self.setMode(DRAWER_MODE.browse);
                 }
-            }*/
+            }
         }, true);
         window.addEventListener('keyup', function(evt) {
             var keyCode = evt.which;
@@ -491,8 +493,6 @@
                 if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
                     self.setExistObjectInteractive(false, false);
                 }
-            }else if(keyCode === 84) {  //T键，进入浏览模式
-                self.setMode(DRAWER_MODE.browse);
             }
         }, true);
     };

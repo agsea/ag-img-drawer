@@ -90,17 +90,17 @@
     /**
      * 注册滚轮事件
      * @param ele
-     * @param callback
+     * @param afterWheelCalc
      * @private
      */
-    function _registeWheelEvt(ele, callback) {
+    function _registeWheelEvt(ele, afterWheelCalc) {
         ele.addEventListener('mousewheel', function(evt) {
             var delta = evt.wheelDelta && (evt.wheelDelta > 0 ? 1 : -1);
-            _wheelHandler(evt, ele, delta, callback);
+            _wheelHandler(evt, ele, delta, afterWheelCalc);
         });
         ele.addEventListener('DOMMouseScroll', function(evt) {
             var delta = evt.detail && (evt.detail > 0 ? -1 : 1);
-            _wheelHandler(evt, ele, delta, callback);
+            _wheelHandler(evt, ele, delta, afterWheelCalc);
         });
     }
 
@@ -109,10 +109,10 @@
      * @param evt
      * @param ele
      * @param delta
-     * @param callback
+     * @param afterWheelCalc
      * @private
      */
-    function _wheelHandler(evt, ele, delta, callback) {
+    function _wheelHandler(evt, ele, delta, afterWheelCalc) {
         // 对连续滚轮缩放做检测
         if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
             // console.info('操作过于频繁');
@@ -138,7 +138,7 @@
             x: evt.pageX,
             y: evt.pageY
         };
-        _zoomElement(pointer, ele, scale, callback);
+        _zoomElement(pointer, ele, scale, afterWheelCalc);
     }
 
     /**

@@ -31,7 +31,7 @@ $().ready(function() {
             drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
-            console.info('修改', object, isSingle);
+            // console.info('修改', object, isSingle);
         },
         afterEnter(object, isSingle, isModified) {
             console.info('回车', object, isSingle, isModified);
@@ -48,7 +48,7 @@ $().ready(function() {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            // console.info('选中', objects[0]);
+            // console.info('选中', drawer.getPointerToScreen(objects[0]));
         },
         afterCopy: function(objects, source) {
             console.info('复制', objects);
@@ -59,6 +59,12 @@ $().ready(function() {
     });
     // drawer.drawType = 'Ellipse';
 });
+
+function createPopu(text) {
+    var div = document.createElement('div');
+    div.innerHTML = text;
+    return div;
+}
 
 function toggleSide(ele) {
     var $this = $(ele);
@@ -257,9 +263,9 @@ var groupObjectMap = {};
 function drawRects() {
     for(var i = 0; i < 2; i++) {
         groupCounter++;
-        var agRect = drawer.createRectWithLabel('绿箭口香糖~', {
-            width: 200,
-            height: 200,
+        var agRect = drawer.createRectWithLabel('部件-部件种类-部位-缺陷', {
+            width: 100,
+            height: 160,
             left: 200 * i,
             top: 200 * i + 50,
             // showLabel: true
@@ -267,6 +273,12 @@ function drawRects() {
         // agRect.agTestProp = 666;
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
+        drawer.createOverlay({
+            ele: createPopu('部件-部件种类-部位-缺陷-' + i),
+            target: agRect,
+            position: 'bottom',
+            visible: false
+        });
 
         groupObjectMap['groupObj' + groupCounter] = agRect;
     }

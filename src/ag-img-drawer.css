@@ -15,25 +15,19 @@
 }
 .aDrawer{
     position: absolute;
+    overflow: hidden;
 }
 .aDrawer.show{
     display: block;
 }
 
-/*辅助样式*/
-.aDrawer-mask{
+/*悬浮窗*/
+.ag-overlay {
     position: absolute;
-    width: 300px;
-    height: 154px;
-    left: 0px;
-    top: 0px;
-    background-color: transparent;
-    z-index: 2;
-    cursor: url("./images/cursor/hand-open.ico"), auto;
+    z-index: 1;
 }
-.aDrawer-mask.dark{
-    background-color: rgba(6, 6, 6, 0.6);
-}
+
+/*辅助样式*/
 .aDrawer-loading{
     position: absolute;
     width: 50px;
@@ -44,7 +38,7 @@
     background-size: 50px;
     transition: transform 1s ease-out;
     animation: time-loading 3.5s infinite linear;
-    z-index: 1;
+    z-index: 2;
 }
 @keyframes time-loading{
     0%{
@@ -62,6 +56,19 @@
     100%{
         transform: rotateZ(360deg);
     }
+}
+.aDrawer-mask{
+    position: absolute;
+    width: 300px;
+    height: 154px;
+    left: 0px;
+    top: 0px;
+    background-color: transparent;
+    z-index: 3;
+    cursor: url("./images/cursor/hand-open.ico"), auto;
+}
+.aDrawer-mask.dark{
+    background-color: rgba(6, 6, 6, 0.6);
 }
 .ag-smooth{
     transform-origin: center center;

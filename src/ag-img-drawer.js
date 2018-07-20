@@ -60,6 +60,7 @@
     var _beforeActiveObjs = null;
     var _clipboard = null;
     var _ctrlKey = false;
+    var _hoverOnCanvas = false;
     var _mousePosition = {
         move: {x: 0, y: 0}
     };
@@ -129,6 +130,7 @@
             strokeColor: '#fff',
             strokeWidth: 0
         };
+        this._drawIndexCounter = 0;
         this.initCanvasContent(option);
     };
 
@@ -199,7 +201,11 @@
             //初始化拖拽和缩放
             AgImgDragger.init(self.containerId);
             AgImgLarger.init(self.containerId, function(newWidth, newHeight, scale) {
+                _setAllObjectOverlaysShow(self, false);
                 self.setSize(newWidth, newHeight, scale);
+                setTimeout(function() {
+                    _setAllObjectOverlaysShow(self, 'auto');
+                }, 400);
             });
             container.dataset.drawable = self.drawable;
             container.dataset.dragDirectly = self.dragDirectly;
@@ -255,8 +261,11 @@
             startY = (evt.e.pageY - drawParam.offsetY) / self.zoom;
         });
         window.addEventListener('mousemove', function(evt) {
-            _mousePosition.move.x = evt.offsetX / self.zoom;
-            _mousePosition.move.y = evt.offsetY / self.zoom;
+            if(_hoverOnCanvas) {
+                _mousePosition.move.x = evt.offsetX / self.zoom;
+                _mousePosition.move.y = evt.offsetY / self.zoom;
+            }
+
             if(hit && self.drawable && (self.mode === DRAWER_MODE.draw) && !hasSelect) {
                 endX = (evt.pageX - drawParam.offsetX) / self.zoom;
                 endY = (evt.pageY - drawParam.offsetY) / self.zoom;
@@ -335,7 +344,6 @@
         });
         window.addEventListener('mouseup', function(evt) {
             hit = false;
-
             if(self.drawingItem) {
                 if(self.drawingItem.width < 3 && self.drawingItem.height < 3) {
                     canvas.remove(self.drawingItem);
@@ -362,10 +370,16 @@
                 self.drawingItem = null;
             }
         });
+        canvas.on('mouse:move', function(evt) {
+            _hoverOnCanvas = true;
+        });
+        canvas.on('mouse:over', function(evt) {
+            _hoverOnCanvas = true;
+        });
         canvas.on('mouse:out', function(evt) {
+            _hoverOnCanvas = false;
             _mousePosition.move.x = 0;
             _mousePosition.move.y = 0;
-
         });
 
         //对象事件
@@ -382,7 +396,8 @@
 
             _recordOriginProp(evt.target, {
                 strokeWidth: self.drawStyle.borderWidth,
-                fontSize: self.drawStyle.fontSize
+                fontSize: self.drawStyle.fontSize,
+                drawIndex: self._drawIndexCounter++
             });
         });
         canvas.on('object:modified', function(evt) {
@@ -391,13 +406,17 @@
             target.modified = true;
             option.afterModify(target, isSingle);
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
-            _handleAgRectModify(target);
+            _handleAgRectModify(target, self);
         });
         canvas.on('object:moving', function(evt) {
-            _handleAgRectModify(evt.target);
+            var target = evt.target;
+            _handleAgRectModify(target);
+            _updateObjectOverlays(target, self.zoom);
         });
         canvas.on('object:scaling', function(evt) {
-            _handleAgRectModify(evt.target);
+            var target = evt.target;
+            _handleAgRectModify(target);
+            _updateObjectOverlays(target, self.zoom);
         });
 
         //选择集事件
@@ -658,7 +677,7 @@
      * @param object
      */
     global.AgImgDrawer.prototype.add = function(object) {
-        console.warn('This method has been deprecated, please consider using addObject !');
+        console.warn('The method add has been deprecated, please consider using addObject !');
         this.addObject(object);
     };
 
@@ -689,7 +708,7 @@
      * @param object
      */
     global.AgImgDrawer.prototype.remove = function(object) {
-        console.warn('This method has been deprecated, please consider using removeObject !');
+        console.warn('The method remove has been deprecated, please consider using removeObject !');
         this.removeObject(object);
     };
 
@@ -882,12 +901,9 @@
         this.canvas.setZoom(zoom);
         this.maskEle.style.width = width + 'px';
         this.maskEle.style.height = height + 'px';
-
-        //根据缩放比例为矩形框设置边框粗细
-        /*this.canvas.forEachObject(function(obj, index, objs) {
-            _setStrokeWidthByScale(obj, zoom);
-        });*/
         this.canvas.renderAll();
+
+        _updateAllObjectOverlays(this, zoom);
     };
 
     /**
@@ -896,7 +912,7 @@
      * @return {Number|*}
      */
     global.AgImgDrawer.prototype.getScale = function() {
-        console.warn('This method has been deprecated, please consider using getZoom !');
+        console.warn('The method getScale has been deprecated, please consider using getZoom !');
         return this.getZoom();
     };
     /**
@@ -905,7 +921,7 @@
      * @param scale
      */
     global.AgImgDrawer.prototype.setScale = function(scale) {
-        console.warn('This method has been deprecated, please consider using setZoom !');
+        console.warn('The method setScale has been deprecated, please consider using setZoom !');
         this.setZoom(scale);
     };
 
@@ -1182,6 +1198,35 @@
     };
 
     /**
+     * 为对象创建悬浮框，可悬浮于对象上下左右4个方位，并可以通过偏移微调位置
+     * @param {*} option
+     * @param {*} option.ele - DOM元素
+     * @param {*} option.target - 目标对象
+     * @param {*} option.position - 悬浮位置：top、bottom、left、right
+     * @param {*} option.offset - 偏移：[0, 0]
+     * @param {*} option.visible - 是否显示
+     */
+    global.AgImgDrawer.prototype.createOverlay = function(option) {
+        if(!(option instanceof Object) || !option.ele || !option.target) {
+            console.error('Parameter [option.ele] or [option.target] missing.');
+            return;
+        }
+        if(!option.target._overlays) option.target._overlays = [];
+        option.offset = option.offset instanceof Array ? option.offset : [0, 0];
+        option.visible = option.visible === false ? false : true;
+        option.ele.classList.add('ag-overlay');
+        option.ele.style.display = option.visible ? 'block' : 'none';
+        option.ele.overlayOpt = option;
+        option.ele.visible = option.visible;
+
+        var self = this;
+        var container = document.getElementById(self.containerId);
+        _setOverlayPosition(option.ele, self.zoom, option);
+        container.appendChild(option.ele);
+        option.target._overlays.push(option.ele);
+    };
+
+    /**
      * 高亮显示对象
      * @param objects
      */
@@ -1206,6 +1251,7 @@
                     object.set({
                         stroke: self.drawStyle.borderColorH
                     });
+                    object.moveTo(self._drawIndexCounter + 1);
                     var labelObj = object._labelObject;
                     if(labelObj) {
                         // 将标签对象加入选择集使其可以被一起拖动
@@ -1224,6 +1270,7 @@
                         labelObj.item(1).set({
                             fill: this.drawStyle.fontColorH
                         });
+                        labelObj.moveTo(self._drawIndexCounter + 1);
                     }
                 }
             }
@@ -1250,6 +1297,7 @@
                     object.set({
                         stroke: self.drawStyle.borderColor
                     });
+                    object.moveTo(object.drawIndex);
                     var labelObj = object._labelObject;
                     if(labelObj) {
                         labelObj.item(0).set({
@@ -1258,6 +1306,7 @@
                         labelObj.item(1).set({
                             fill: this.drawStyle.fontColor
                         });
+                        object.moveTo(labelObj.drawIndex);
                     }
                 }
             }
@@ -1278,7 +1327,7 @@
      * 粘贴选中的对象
      */
     global.AgImgDrawer.prototype.pasteSelectedObject = function() {
-        if(_clipboard.length) {
+        if(_clipboard && _clipboard.length) {
             _setCopyObjectPosition();
             this.addObjects(_clipboard);
             this.refresh();
@@ -1292,6 +1341,14 @@
      */
     global.AgImgDrawer.prototype.clearClipboard = function() {
         _clipboard = null;
+    };
+
+    /**
+     * 设置与对象相关联的悬浮框的显示与隐藏
+     * @param {*} ifShow
+     */
+    global.AgImgDrawer.prototype.setObjectOverlaysShow = function(target, ifShow) {
+        _setObjectOverlaysShow(target, ifShow);
     };
 
     //--------------------------------------------------------
@@ -1399,8 +1456,10 @@
             }
         }else if(object.isType('rect') || object.isType('ellipse')) {
             object.originStrokeWidth = opts.strokeWidth;
+            object.drawIndex = opts.drawIndex;
         }else if(object.isType('text') || object.isType('i-text')) {
             object.originFontSize = opts.fontSize;
+            object.drawIndex = opts.drawIndex;
         }
     }
 
@@ -1709,6 +1768,7 @@
             target.selected = true;
             target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
             _this.highlightObjects([target]);
+            _setObjectOverlaysShow(target, true);
         });
         target.on('deselected', function(evt) {
             if(lObj) {
@@ -1727,6 +1787,7 @@
             }
             target.selected = false;
             _this.darkenObjects([target]);
+            _setObjectOverlaysShow(target, false);
         });
         target.on('removed', function(evt) {
             lObj && _this.canvas.remove(lObj);
@@ -1840,28 +1901,115 @@
 
     function _setCopyObjectPosition() {
         if(_clipboard instanceof Array) {
-            var mX = _mousePosition.move.x;
-            var mY = _mousePosition.move.y;
+            var tarX, tarY;
             var tmp, tmpLabel;
             for(var i = 0, len = _clipboard.length; i < len; i++) {
                 tmp = _clipboard[i];
                 tmpLabel = tmp._labelObject;
+
+                if(_hoverOnCanvas) {
+                    tarX = _mousePosition.move.x;
+                    tarY = _mousePosition.move.y;
+                }else {
+                    tarX = tmp.left;
+                    tarY = tmp.top;
+                }
+
                 if(tmpLabel) {
                     tmpLabel.set({
-                        left: mX,
-                        top: mY - tmpLabel.height
+                        left: tarX,
+                        top: tarY - tmpLabel.height
                     });
                     tmp.set({
-                        left: mX,
-                        top: mY
+                        left: tarX,
+                        top: tarY
                     });
                 }else {
                     tmp.set({
-                        left: mX,
-                        top: mY
+                        left: tarX,
+                        top: tarY
                     });
                 }
             }
         }
+    }
+
+    /**
+     * 获取对象左上角点相对容器的坐标
+     * @param {*} object
+     */
+    function _getObjPointerToCon(object, zoom) {
+        // var bounRect = container.getBoundingClientRect();
+        // var conL = bounRect.left, conT = bounRect.top;
+        var l = object.left * zoom;
+        var t = object.top * zoom;
+        return {
+            x: l,
+            y: t
+        };
+    }
+
+    function _setAllObjectOverlaysShow(_this, ifShow) {
+        _this.canvas.forEachObject(function(obj, index, objs) {
+            _setObjectOverlaysShow(obj, ifShow && obj.selected ? true : false);
+        });
+    }
+
+    function _setObjectOverlaysShow(target, ifShow) {
+        var overlays = target._overlays;
+        if(overlays) {
+            overlays.forEach(function(item) {
+                if(ifShow === 'auto') {
+                    item.style.display = item.visible ? 'block' : 'none';
+                }else if(ifShow !== false) {
+                    item.visible = true;
+                    item.style.display = 'block';
+                }else {
+                    item.visible = false;
+                    item.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    function _updateAllObjectOverlays(_this, zoom) {
+        _this.canvas.forEachObject(function(obj, index, objs) {
+            _updateObjectOverlays(obj, zoom);
+        });
+    }
+
+    function _updateObjectOverlays(target, zoom) {
+        var overlays = target._overlays;
+        if(overlays) {
+            overlays.forEach(function(item) {
+                _setOverlayPosition(item, zoom, item.overlayOpt);
+            });
+        }
+    }
+
+    function _setOverlayPosition(ele, zoom, overlayOpt) {
+        var objLTPos = _getObjPointerToCon(overlayOpt.target, zoom);
+        var eleBoundRect = ele.getBoundingClientRect();
+        var target = overlayOpt.target;
+        var borderWX = target.strokeWidth * zoom * target.scaleX;
+        var borderWY = target.strokeWidth * zoom * target.scaleY;
+        var tarL, tarT;
+        if(overlayOpt.position === 'top') {
+            tarL = objLTPos.x;
+            tarT = objLTPos.y - borderWY - eleBoundRect.height;
+        }else if(overlayOpt.position === 'bottom') {
+            tarL = objLTPos.x;
+            tarT = objLTPos.y + borderWY + target.height * zoom * target.scaleY;
+        }else if(overlayOpt.position === 'left') {
+            tarL = objLTPos.x - borderWX - eleBoundRect.width;
+            tarT = objLTPos.y;
+        }else if(overlayOpt.position === 'right') {
+            tarL = objLTPos.x + borderWX + target.width * zoom * target.scaleX;
+            tarT = objLTPos.y;
+        }
+        tarL += overlayOpt.offset[0];
+        tarT += overlayOpt.offset[1];
+        ele.style.left = tarL + 'px';
+        ele.style.top = tarT + 'px';
     }
 })(window);

@@ -4,6 +4,7 @@
  */
 
 var drawer;
+var newDrawRect;
 var zTreeObj;
 
 $().ready(function() {
@@ -28,6 +29,11 @@ $().ready(function() {
         },
         afterDraw: function(object) {
             // console.info('绘制', object);
+            // 仅保留一个矩形框
+            if(newDrawRect) {
+                drawer.removeObject(newDrawRect);
+            }
+            newDrawRect = object;
             drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
@@ -37,18 +43,18 @@ $().ready(function() {
             console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
-            console.info('删除前', ctrlKey, objects);
+            // console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
-            // console.info('删除', ctrlKey, objects);
+            console.info('删除', objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            // console.info('选中', drawer.getPointerToScreen(objects[0]));
+            console.info('选中', objects);
         },
         afterCopy: function(objects, source) {
             console.info('复制', objects);
@@ -211,7 +217,7 @@ function drawLabel() {
 }
 function deleteDraw() {
     //drawer.deleteSelection();
-    drawer.remove(groupObjectMap['groupObj1']);
+    drawer.removeObject(groupObjectMap['groupObj1']);
 }
 function cancleSele() {
     drawer.cancelSelection();

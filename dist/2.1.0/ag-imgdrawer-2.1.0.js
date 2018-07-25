@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.1.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件 */
-/*! Modified on 2018/07/20 17:11:25 */
+/*! Modified on 2018/07/24 14:39:20 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -546,6 +546,7 @@
         canvas.on('selection:cleared', function(evt) {
             hasSelect = false;
             self.selectedItems = null;
+            _beforeActiveObjs = null;
             option.afterCancelSelect();
         });
         canvas.on('before:selection:cleared', function(evt) {
@@ -580,13 +581,21 @@
                     case 40: _moveItem(self.selectedItems, 0, 1); break;
                 }
                 self.refresh();
-            }else if(keyCode === 46) {// 删除选中对象
-                self.removeObjects(self.getSelection());
-                self.cancelSelection();
+            }else if(keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
+                if(document.activeElement.nodeName === 'BODY') {
+                    var selection = self.getSelection();
+                    self.removeObjects(selection);
+                }
             }else if(keyCode === 67 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 复制对象：ctrl+C
-                self.copySelectedObject();
+                // 判断当前焦点对象是否是文本框，如果是则不执行复制对象的操作
+                if(document.activeElement.nodeName === 'BODY') {
+                    self.copySelectedObject();
+                }
             }else if(keyCode === 86 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 粘贴对象：ctrl+V
-                self.pasteSelectedObject();
+                // 判断当前焦点对象是否是文本框，如果是则不执行粘贴对象的操作
+                if(document.activeElement.nodeName === 'BODY') {
+                    self.pasteSelectedObject();
+                }
             }else if(keyCode === 13) {// 回车
                 var activeObj = self.canvas.getActiveObject();
                 if(activeObj) {
@@ -815,14 +824,20 @@
     };
 
     /**
-     * 删除一个对象
+     * 删除一个对象，对象如果被选中则必须先取消选中才能删除
      * @param object
+     * @param ifExecCallback - 是否执行回调函数，默认为true
      */
-    global.AgImgDrawer.prototype.removeObject = function(object) {
+    global.AgImgDrawer.prototype.removeObject = function(object, ifExecCallback) {
+        ifExecCallback = ifExecCallback === false ? false : true;
+
         var objects = [object];
-        if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
+        if(ifExecCallback) {
+            if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
+        }
 
         if(object instanceof fabric.Object && this.canvas.contains(object)) {
+            if(object.selected === true) this.canvas.discardActiveObject();
             this.option.afterDelete(objects, _ctrlKey);
             this.canvas.remove(object);
         }
@@ -831,16 +846,23 @@
     /**
      * 删除多个对象
      * @param objects
+     * @param ifExecCallback - 是否执行回调函数，默认为true
      */
-    global.AgImgDrawer.prototype.removeObjects = function(objects) {
-        if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
+    global.AgImgDrawer.prototype.removeObjects = function(objects, ifExecCallback) {
+        ifExecCallback = ifExecCallback === false ? false : true;
+        if(ifExecCallback) {
+            if(this.option.beforeDelete(objects, _ctrlKey) === false) return;
+        }
+
         var success = [], tmp;
         for(var i = 0, len = objects.length; i < len; i++) {
             tmp = objects[i];
+            if(tmp.selected === true) this.canvas.discardActiveObject();
             this.canvas.remove(tmp);
             success.push(tmp);
         }
         this.option.afterDelete(success, _ctrlKey);
+        this.refresh();
     };
 
     /**
@@ -903,7 +925,7 @@
      * @param object
      */
     global.AgImgDrawer.prototype.setActiveObject = function(object) {
-        this.canvas.setActiveObject(object);
+        object && this.canvas.setActiveObject(object);
     };
 
     /**
@@ -1892,6 +1914,7 @@
             _setObjectOverlaysShow(target, false);
         });
         target.on('removed', function(evt) {
+            _removeObjectOverlays(target);
             lObj && _this.canvas.remove(lObj);
         });
     }
@@ -2070,6 +2093,15 @@
                     item.visible = false;
                     item.style.display = 'none';
                 }
+            });
+        }
+    }
+
+    function _removeObjectOverlays(target) {
+        var overlays = target._overlays;
+        if(overlays) {
+            overlays.forEach(function(item) {
+                item.parentNode.removeChild(item);
             });
         }
     }

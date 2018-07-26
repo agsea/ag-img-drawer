@@ -17,7 +17,7 @@ $().ready(function() {
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('draw');
+            drawer.setMode('edit');
             drawer.setEditDirectly(true);
             drawRects();
             // drawer.setExistObjectSelectable(false);
@@ -65,6 +65,15 @@ $().ready(function() {
     });
     // drawer.drawType = 'Ellipse';
 });
+
+function createLabelPopu(text) {
+    var div = document.createElement('div');
+    var input = document.createElement('input');
+    input.value = text;
+    div.classList.add('popup-label');
+    div.appendChild(input);
+    return div;
+}
 
 function createPopu(text) {
     var div = document.createElement('div');
@@ -269,16 +278,21 @@ var groupObjectMap = {};
 function drawRects() {
     for(var i = 0; i < 2; i++) {
         groupCounter++;
-        var agRect = drawer.createRectWithLabel('部件-部件种类-部位-缺陷', {
+        var agRect = drawer.createRect({
             width: 100,
             height: 160,
             left: 200 * i,
             top: 200 * i + 50,
             // showLabel: true
         });
-        // agRect.agTestProp = 666;
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
+        drawer.createOverlay({
+            ele: createLabelPopu('部件-部件种类-部位-缺陷-' + i),
+            target: agRect,
+            position: 'top',
+            visible: 'auto'
+        });
         drawer.createOverlay({
             ele: createPopu('部件-部件种类-部位-缺陷-' + i),
             target: agRect,

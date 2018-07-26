@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.1.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件 */
-/*! Modified on 2018/07/24 14:39:20 */
+/*! Modified on 2018/07/26 18:05:28 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -119,8 +119,8 @@
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
         afterModify: function(object, isSingle) {},         //修改回调，携带参数：所修改的对象、是否是单个对象
         afterEnter: function(object, isSingle, isModified) {},          //按回车键回调，携带参数：当前选中对象、是否是单个对象、是否修改
-        beforeDelete: function() {},                //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下、方法返回false则取消删除
-        afterDelete: function(objects) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
+        beforeDelete: function(objects, ifCtrl) {},                //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下、方法返回false则取消删除
+        afterDelete: function(objects, ifCtrl) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
         afterClear: function(objects) {},           //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},          //选中物体回调，携带一个参数为所选中的对象数组
         afterCancelSelect: function() {},           //取消选中物体回调
@@ -303,10 +303,10 @@
             //初始化拖拽和缩放
             AgImgDragger.init(self.containerId);
             AgImgLarger.init(self.containerId, function(newWidth, newHeight, scale) {
-                _setAllObjectOverlaysShow(self, false);
+                _setObjOverlaysShowOnScale(self, false);
                 self.setSize(newWidth, newHeight, scale);
                 setTimeout(function() {
-                    _setAllObjectOverlaysShow(self, 'auto');
+                    _setObjOverlaysShowOnScale(self, true);
                 }, 400);
             });
             container.dataset.drawable = self.drawable;
@@ -1328,7 +1328,7 @@
      * @param {*} option.target - 目标对象
      * @param {*} option.position - 悬浮位置：top、bottom、left、right
      * @param {*} option.offset - 偏移：[0, 0]
-     * @param {*} option.visible - 是否显示
+     * @param {*} option.visible - 是否显示：true, false, auto
      */
     global.AgImgDrawer.prototype.createOverlay = function(option) {
         if(!(option instanceof Object) || !option.ele || !option.target) {
@@ -1337,16 +1337,17 @@
         }
         if(!option.target._overlays) option.target._overlays = [];
         option.offset = option.offset instanceof Array ? option.offset : [0, 0];
-        option.visible = option.visible === false ? false : true;
         option.ele.classList.add('ag-overlay');
-        option.ele.style.display = option.visible ? 'block' : 'none';
+        option.visible === undefined && (option.visible = 'auto');
+        var show = option.visible === true ? true : false;
+        // option.ele.style.display = option.visible ? 'block' : 'none';
+        option.ele.style.visibility = show ? 'visible' : 'hidden';
         option.ele.overlayOpt = option;
-        option.ele.visible = option.visible;
 
         var self = this;
         var container = document.getElementById(self.containerId);
-        _setOverlayPosition(option.ele, self.zoom, option);
         container.appendChild(option.ele);
+        _setOverlayPosition(option.ele, self.zoom, option);
         option.target._overlays.push(option.ele);
     };
 
@@ -1851,7 +1852,10 @@
         // 绑定事件
         var lObj = target._labelObject;
         target.on('mouseover', function(evt) {
+            _setClassForObjOverlay(target, 'hover', true);
             if(!target.selected) {
+                _setObjectOverlaysShow(target, true, true, 'hover');
+
                 if(lObj && lObj.showMode !== false) {
                     lObj.item(0).set({
                         fill: _this.drawStyle.fontBackColor
@@ -1871,7 +1875,10 @@
             }
         });
         target.on('mouseout', function(evt) {
+            _setClassForObjOverlay(target, 'hover', false);
             if(!target.selected) {
+                _setObjectOverlaysShow(target, false, true);
+
                 if(lObj && lObj.showMode === 'auto') {
                     lObj.set('visible', false);
                 }
@@ -1892,7 +1899,8 @@
             target.selected = true;
             target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
             _this.highlightObjects([target]);
-            _setObjectOverlaysShow(target, true);
+            _setClassForObjOverlay(target, 'selected', true);
+            _setObjectOverlaysShow(target, true, false);
         });
         target.on('deselected', function(evt) {
             if(lObj) {
@@ -1911,7 +1919,8 @@
             }
             target.selected = false;
             _this.darkenObjects([target]);
-            _setObjectOverlaysShow(target, false);
+            _setClassForObjOverlay(target, 'selected', false);
+            _setObjectOverlaysShow(target, false, true);
         });
         target.on('removed', function(evt) {
             _removeObjectOverlays(target);
@@ -2074,24 +2083,71 @@
         };
     }
 
-    function _setAllObjectOverlaysShow(_this, ifShow) {
+     /**
+     * 设置悬浮框的显示与隐藏
+     * @param {*} overlays
+     * @param {*} ifShow
+     * @param {*} ifAuto
+     */
+    function _setOverlaysShow(overlays, ifShow, ifAuto) {
+        if(overlays instanceof Array && overlays.length) {
+            overlays.forEach(function(item) {
+                // 仅改变visible属性是auto的overlay
+                if(ifAuto) {
+                    if(item.overlayOpt.visible === 'auto') {
+                        item.style.visibility = ifShow ? 'visible' : 'hidden';
+                    }
+                }else if(ifShow) {
+                    item.style.visibility = 'visible';
+                }else {
+                    item.style.visibility = 'hidden';
+                }
+            });
+        }
+    }
+
+    function _setObjOverlaysShowOnScale(_this, ifShow) {
         _this.canvas.forEachObject(function(obj, index, objs) {
-            _setObjectOverlaysShow(obj, ifShow && obj.selected ? true : false);
+            var overlays = obj._overlays;
+            if(overlays) {
+                overlays.forEach(function(item) {
+                    // 记录原始值
+                    if(!ifShow) {
+                        item.oldVisibility = item.style.visibility;
+                        item.style.visibility = 'hidden';
+                    }else {
+                        item.style.visibility = item.oldVisibility ? item.oldVisibility : 'visible';
+                    }
+                });
+            }
         });
     }
 
-    function _setObjectOverlaysShow(target, ifShow) {
+    function _setObjectOverlaysShow(target, ifShow, ifAuto) {
         var overlays = target._overlays;
         if(overlays) {
             overlays.forEach(function(item) {
-                if(ifShow === 'auto') {
-                    item.style.display = item.visible ? 'block' : 'none';
-                }else if(ifShow !== false) {
-                    item.visible = true;
-                    item.style.display = 'block';
+                if(!ifShow) {
+                    item.style.visibility = 'hidden';
+                }else if(ifAuto) {
+                    if(item.overlayOpt.visible === 'auto' && !target.selected) {
+                        item.style.visibility = ifShow ? 'visible' : 'hidden';
+                    }
                 }else {
-                    item.visible = false;
-                    item.style.display = 'none';
+                    item.style.visibility = 'visible';
+                }
+            });
+        }
+    }
+
+    function _setClassForObjOverlay(target, clazz, flag) {
+        var overlays = target._overlays;
+        if(overlays) {
+            overlays.forEach(function(item) {
+                if(flag) {
+                    item.classList.add(clazz);
+                }else {
+                    item.classList.remove(clazz);
                 }
             });
         }
@@ -2130,12 +2186,12 @@
         var tarL, tarT;
         if(overlayOpt.position === 'top') {
             tarL = objLTPos.x;
-            tarT = objLTPos.y - borderWY - eleBoundRect.height;
+            tarT = objLTPos.y - eleBoundRect.height;
         }else if(overlayOpt.position === 'bottom') {
             tarL = objLTPos.x;
             tarT = objLTPos.y + borderWY + target.height * zoom * target.scaleY;
         }else if(overlayOpt.position === 'left') {
-            tarL = objLTPos.x - borderWX - eleBoundRect.width;
+            tarL = objLTPos.x - eleBoundRect.width;
             tarT = objLTPos.y;
         }else if(overlayOpt.position === 'right') {
             tarL = objLTPos.x + borderWX + target.width * zoom * target.scaleX;

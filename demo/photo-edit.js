@@ -11,13 +11,14 @@ $().ready(function() {
     zTreeObj = initObjectTree('objTree');
 
     drawer = new AgImgDrawer('myDrawer', {
-        backgroundUrl: 'img_3.jpg',
+        backgroundUrl: 'images/big_img1.jpg',
         autoAdjustment: true,
         loadingMask: false,
+        // lockBoundary: false,
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('edit');
+            drawer.setMode('draw');
             drawer.setEditDirectly(true);
             drawRects();
             // drawer.setExistObjectSelectable(false);
@@ -40,21 +41,21 @@ $().ready(function() {
             // console.info('修改', object, isSingle);
         },
         afterEnter(object, isSingle, isModified) {
-            console.info('回车', object, isSingle, isModified);
+            // console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
             // console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
-            console.info('删除', objects);
+            // console.info('删除', objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            console.info('选中', objects);
+            // console.info('选中', objects);
         },
         afterCopy: function(objects, source) {
             console.info('复制', objects);
@@ -103,10 +104,10 @@ function zoomOut() {
     drawer.zoomOut();
 }
 function changeBackground() {
-    drawer.setBackgroundImageWithUpdateSize('img_2.jpg');
+    drawer.setBackgroundImageWithUpdateSize('images/big_img2.jpg');
 }
 function changeBackground2() {
-    drawer.setBackgroundImageWithUpdateSize('img_1.jpg');
+    drawer.setBackgroundImageWithUpdateSize('images/big_img3.jpg');
 }
 
 //初始化滑动开关
@@ -288,13 +289,13 @@ function drawRects() {
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
         drawer.createOverlay({
-            ele: createLabelPopu('部件-部件种类-部位-缺陷-' + i),
+            ele: createLabelPopu('没有什么能够阻挡-' + i),
             target: agRect,
             position: 'top',
             visible: 'auto'
         });
         drawer.createOverlay({
-            ele: createPopu('部件-部件种类-部位-缺陷-' + i),
+            ele: createPopu('没有什么能够阻挡-' + i),
             target: agRect,
             position: 'bottom',
             visible: false

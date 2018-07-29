@@ -9782,6 +9782,20 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
           lockScalingY = target.lockScalingY,
           lockScalingFlip = target.lockScalingFlip;
 
+      // 限制缩放只在图片范围内
+      if(target.lockBoundary) {
+          if(x < 0 || x > target.canvasWidth) {
+            lockScalingX = true;
+          }else {
+            lockScalingX = false;
+          }
+          if(y < 0 || y > target.canvasHeight) {
+            lockScalingY = true;
+          }else {
+            lockScalingY = false;
+          }
+      }
+
       if (lockScalingX && lockScalingY) {
         return false;
       }
@@ -9824,7 +9838,9 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
         localMouse.y = 0;
       }
 
-      if (by === 'equally' && !lockScalingX && !lockScalingY) {
+      if (by === 'equally' /*&& !lockScalingX && !lockScalingY*/) {
+        transform.lockScalingX = lockScalingX;
+        transform.lockScalingY = lockScalingY;
         scaled = this._scaleObjectEqually(localMouse, target, transform, _dim);
       }
       else if (!by) {
@@ -9840,6 +9856,7 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
       transform.newScaleX = scaleX;
       transform.newScaleY = scaleY;
       forbidScalingX || forbidScalingY || this._flipObject(transform, by);
+
       return scaled;
     },
 
@@ -9870,8 +9887,12 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
       transform.newScaleY = signY * Math.abs(transform.original.scaleY * _scaleFactorY);
 
       scaled = transform.newScaleX !== target.scaleX || transform.newScaleY !== target.scaleY;
-      target.set('scaleX', transform.newScaleX);
-      target.set('scaleY', transform.newScaleY);
+      if(!transform.lockScalingX) {
+          target.set('scaleX', transform.newScaleX);
+      }
+      if(!transform.lockScalingY) {
+        target.set('scaleY', transform.newScaleY);
+      }
       return scaled;
     },
 

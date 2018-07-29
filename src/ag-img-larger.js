@@ -8,7 +8,7 @@
     var SCALE_TOLERANT = 240;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
-    var SCALE_MAX = 60;
+    var SCALE_MAX = 100;
 
     global.AgImgLarger = {
         init: function(eleId, afterWheel) {

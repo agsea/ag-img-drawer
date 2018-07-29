@@ -12,6 +12,7 @@
         backgroundUrl: null,  //背景图片地址
         autoAdjustment: true,   //根据容器大小自动调整绘图器宽高
         loadingMask: true,  //加载动画遮罩
+        lockBoundary: true, //锁定操作边界在图片范围内
         afterInitialize: function() {},
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
@@ -234,7 +235,7 @@
         //创建fabric.js实例
         var canvas = self.canvas = new fabric.Canvas(self.canvasEleId);
         self.setSize(option.width, option.height, 1);
-        self.setBackgroundImage(self.backgroundImage, null);
+        self.setBackgroundImage(option.backgroundUrl, null);
         self.loadingEle.style.display = 'none';
         _setGlobalObjectProp();
         _setGlobalControlStyle();
@@ -245,6 +246,7 @@
 
         //鼠标事件
         canvas.on('mouse:down', function(evt) {
+            _hoverOnCanvas = true;
             hit = true;
             self.drawingItem = null;
             self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
@@ -269,6 +271,19 @@
             if(hit && self.drawable && (self.mode === DRAWER_MODE.draw) && !hasSelect) {
                 endX = (evt.pageX - drawParam.offsetX) / self.zoom;
                 endY = (evt.pageY - drawParam.offsetY) / self.zoom;
+                // 修正至图片范围内
+                if(drawer.option.lockBoundary) {
+                    if(endX < 0) {
+                        endX = 0;
+                    }else if(endX > drawer.originWidth) {
+                        endX = drawer.originWidth;
+                    }
+                    if(endY < 0) {
+                        endY = 0;
+                    }else if(endY > drawer.originHeight) {
+                        endY = drawer.originHeight;
+                    }
+                }
 
                 if(self.drawingItem) {
                     canvas.remove(self.drawingItem);
@@ -387,14 +402,18 @@
             if(self.drawingItem) {
                 return;
             }
+            var target = evt.target;
+            target.lockBoundary = option.lockBoundary;
+            target.canvasWidth = self.originWidth;
+            target.canvasHeight = self.originHeight;
 
             if(!self.selectable) {
-                evt.target.selectable = false;
-                evt.target.hoverCursor = 'crosshair';
-                evt.target.moveCursor = 'crosshair';
+                target.selectable = false;
+                target.hoverCursor = 'crosshair';
+                target.moveCursor = 'crosshair';
             }
 
-            _recordOriginProp(evt.target, {
+            _recordOriginProp(target, {
                 strokeWidth: self.drawStyle.borderWidth,
                 fontSize: self.drawStyle.fontSize,
                 drawIndex: self._drawIndexCounter++
@@ -407,10 +426,12 @@
             option.afterModify(target, isSingle);
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
             _handleAgRectModify(target, self);
+            target.lockScaleInDrawer = false;
         });
         canvas.on('object:moving', function(evt) {
             var target = evt.target;
             _handleAgRectModify(target);
+            _lockObjectMoveInDrawer(target, self.originWidth, self.originHeight, self.drawStyle);
             _updateObjectOverlays(target, self.zoom);
         });
         canvas.on('object:scaling', function(evt) {
@@ -578,49 +599,38 @@
 
     /**
      * 设置背景图片，并调整图片大小以适应绘图器宽高
-     * @param {string|fabric.Image} img - 图片地址或fabric.Image对象
+     * @param {string} url - 图片地址
      * @param callback
      */
-    global.AgImgDrawer.prototype.setBackgroundImage = function(img, callback) {
+    global.AgImgDrawer.prototype.setBackgroundImage = function(url, callback) {
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
         self.maskEle.className = (self.loadingMask) ? 'aDrawer-mask dark' : 'aDrawer-mask';
         self.maskEle.style.display = 'block';
 
-        if(img instanceof fabric.Image) {
-            _scaleBackgroundImage(img, self.originWidth, self.originHeight);
-            self.canvas.setBackgroundImage(img, self.canvas.renderAll.bind(self.canvas));
+        if(!url || url instanceof Object) return;
 
+        self.backgroundUrl = url;
+        fabric.Image.fromURL(url, function(oImg) {
+            var container = document.getElementById(self.containerId);
+            _setBackgroundImage(container, url, null);
+            //TODO：如何检测背景图片设置完成
             self.loadingEle.style.display = 'none';
             self.maskEle.className = 'aDrawer-mask';
             self.maskEle.style.display = oldMaskDisplay;
             if(callback instanceof Function) {
                 callback();
             }
-        }else {
-            self.backgroundUrl = img;
-            fabric.Image.fromURL(img, function(oImg) {
-                self.backgroundImage = oImg;
-                _scaleBackgroundImage(self.backgroundImage, self.originWidth, self.originHeight);
-                self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-
-                self.loadingEle.style.display = 'none';
-                self.maskEle.className = 'aDrawer-mask';
-                self.maskEle.style.display = oldMaskDisplay;
-                if(callback instanceof Function) {
-                    callback();
-                }
-            });
-        }
+        });
     };
 
     /**
      * 设置背景图片，并更新绘图器大小
-     * @param {string|fabric.Image} img - 图片地址或fabric.Image对象
+     * @param {string} url - 图片地址
      * @param callback
      */
-    global.AgImgDrawer.prototype.setBackgroundImageWithUpdateSize = function(img, callback) {
+    global.AgImgDrawer.prototype.setBackgroundImageWithUpdateSize = function(url, callback) {
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
@@ -628,24 +638,21 @@
         self.maskEle.style.display = 'block';
 
         //隐藏旧背景
-        self.backgroundImage.opacity = 0;
-        self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-        self.resetSize();
 
         //容器的父元素
-        var conParent = document.getElementById(self.containerId).parentNode;
+        var container = document.getElementById(self.containerId);
+        var conParent = container.parentNode;
         var conPWidth = parseFloat(conParent.clientWidth);
         var conPHeight = parseFloat(conParent.clientHeight);
 
-        if(img instanceof fabric.Image) {
-            var newSize = _calcImgSize(conPWidth, conPHeight, img.width, img.height, self.option.padding);
-            self.backgroundImage.opacity = 1;
-            _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
-            self.canvas.setBackgroundImage(img, self.canvas.renderAll.bind(self.canvas));
+        self.backgroundUrl = url;
+        fabric.Image.fromURL(url, function(oImg) {
+            var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
             self.originWidth = newSize[0];
             self.originHeight = newSize[1];
             self.resetSize();
 
+            _setBackgroundImage(container, url, null);
             self.loadingEle.style.display = 'none';
             self.maskEle.className = 'aDrawer-mask';
             self.maskEle.style.display = oldMaskDisplay;
@@ -655,29 +662,7 @@
                     callback();
                 }, 450);
             }
-        }else {
-            self.backgroundUrl = img;
-            fabric.Image.fromURL(img, function(oImg) {
-                var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
-                self.backgroundImage = oImg;
-                self.backgroundImage.opacity = 1;
-                _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
-                self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-                self.originWidth = newSize[0];
-                self.originHeight = newSize[1];
-                self.resetSize();
-
-                self.loadingEle.style.display = 'none';
-                self.maskEle.className = 'aDrawer-mask';
-                self.maskEle.style.display = oldMaskDisplay;
-                if(callback instanceof Function) {
-                    //样式变化动画期间获取到的宽高等属性为动画开始前的属性，因此应动画结束后再去执行回调
-                    setTimeout(function() {
-                        callback();
-                    }, 450);
-                }
-            });
-        }
+        });
     };
 
     /**
@@ -1087,8 +1072,6 @@
                 if(obj.agType !== 'ag-label') {
                     obj.selectable = true;
                     obj.evented = true;
-                    // obj.hoverCursor = cursor;
-                    // obj.moveCursor = cursor;
                 }
             });
         }else {
@@ -1100,8 +1083,6 @@
                 if(obj.agType !== 'ag-label' && !obj.selected) {
                     obj.selectable = false;
                     obj.evented = false;
-                    // obj.hoverCursor = cursor;
-                    // obj.moveCursor = cursor;
                 }
             });
         }
@@ -1554,6 +1535,17 @@
     }
 
     /**
+     * 为元素设置背景图片
+     * @param {*} ele
+     * @param {*} url
+     * @param {*} sizeMode - 大小模式：contain、cover
+     */
+    function _setBackgroundImage(ele, url, sizeMode) {
+        ele.style.background = 'url("' + url + '") 0 0 no-repeat';
+        ele.style.backgroundSize = '100% 100%';
+    }
+
+    /**
      * 设置背景图片覆盖画布
      * @param img
      * @param canvasWidth
@@ -1767,7 +1759,8 @@
                 var flag1 = target.isNew;
                 var flag2 = _this.editDirectly || evt.e.ctrlKey;
                 if(flag1 || flag2) {
-                    target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                    // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                    target.moveCursor = target.hoverCursor = 'move';
                     _this.refresh();
                 }
             }
@@ -1795,7 +1788,8 @@
                 lObj.set('visible', lObj.showMode === 'auto' ? true : lObj.showMode);
             }
             target.selected = true;
-            target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
+            // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
+            target.moveCursor = target.hoverCursor = 'pointer';
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true, false);
@@ -2099,5 +2093,32 @@
         tarT += overlayOpt.offset[1];
         ele.style.left = tarL + 'px';
         ele.style.top = tarT + 'px';
+    }
+
+    /**
+     * 限制对象不能移出图片范围
+     */
+    function _lockObjectMoveInDrawer(target, drawerW, drawerH, drawStyle) {
+        var maxL = drawerW - target.width - drawStyle.borderWidth;
+        var maxT = drawerH - target.height - drawStyle.borderWidth;
+        var l = target.left, t = target.top;
+        if(l < 0) {
+            target.set({
+                left: 0
+            }).setCoords();
+        }else if(l > maxL) {
+            target.set({
+                left: maxL
+            }).setCoords();
+        }
+        if(t < 0) {
+            target.set({
+                top: 0
+            }).setCoords();
+        }else if(t > maxT) {
+            target.set({
+                top: maxT
+            }).setCoords();
+        }
     }
 })(window);

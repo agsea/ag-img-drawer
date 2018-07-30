@@ -8,7 +8,7 @@
     var SCALE_TOLERANT = 240;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
-    var SCALE_MAX = 100;
+    var SCALE_MAX = 150;
 
     global.AgImgLarger = {
         init: function(eleId, afterWheel) {
@@ -26,7 +26,7 @@
             ele.dataset.height = ele.clientHeight;
             ele.dataset.scale = 10;
             ele.dataset.scaleStep = 2;
-            ele.dataset.timestamp = new Date().getTime();
+            // ele.dataset.timestamp = new Date().getTime();
 
             _registeWheelEvt(ele, afterWheel);
             ele.dataset.enlargable = true;
@@ -64,10 +64,8 @@
             scale = (scale % 2 === 0) ? scale : scale + 1;
 
             if(scale < SCALE_MIN) {
-                console.info('The zoom value is not in a reasonable range.');
                 scale = SCALE_MIN;
             }else if(scale > SCALE_MAX) {
-                console.info('The zoom value is not in a reasonable range.');
                 scale = SCALE_MAX;
             }
 
@@ -114,14 +112,15 @@
      */
     function _wheelHandler(evt, ele, delta, afterWheelCalc) {
         // 对连续滚轮缩放做检测
-        if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
-            // console.info('操作过于频繁');
-            return;
-        }
+        // if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
+        //     // console.info('操作过于频繁');
+        //     return;
+        // }
 
         var scale = parseInt(ele.dataset.scale);
         _scaleStep = _calcScaleStep(scale, SCALE_STEP);
-        ele.dataset.timestamp = new Date().getTime();
+        // _scaleStep = SCALE_STEP;
+        // ele.dataset.timestamp = new Date().getTime();
         if(delta > 0) {
             if(scale + _scaleStep > SCALE_MAX) {
                 return;
@@ -133,6 +132,7 @@
             }
             scale -= _scaleStep;
         }
+        console.info(scale, SCALE_MIN, SCALE_MAX);
 
         var pointer = {
             x: evt.pageX,

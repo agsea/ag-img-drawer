@@ -5,10 +5,14 @@
 
 ;(function(global) {
     //缩放参数：为便于计算，这里的放大比例乘以10，实际执行放大操作时再除以10
-    var SCALE_TOLERANT = 240;
+    var SCALE_TOLERANT = 10;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
-    var SCALE_MAX = 150;
+    // 如果仅对图片放大可以进行很大程度的缩放，但如果包含canvas就会十分影响性能
+    var SCALE_MAX = 60;
+    // 动画间隔
+    var ANIMATE_DURATION = 500;
+    var PERCENT_INTERVAL = 10;
 
     global.AgImgLarger = {
         init: function(eleId, afterWheel) {
@@ -26,7 +30,9 @@
             ele.dataset.height = ele.clientHeight;
             ele.dataset.scale = 10;
             ele.dataset.scaleStep = 2;
-            // ele.dataset.timestamp = new Date().getTime();
+            var perEle = _createPercentEle();
+            ele.perEle = perEle;
+            ele.parentNode.appendChild(perEle);
 
             _registeWheelEvt(ele, afterWheel);
             ele.dataset.enlargable = true;
@@ -111,28 +117,46 @@
      * @private
      */
     function _wheelHandler(evt, ele, delta, afterWheelCalc) {
-        // 对连续滚轮缩放做检测
-        // if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
-        //     // console.info('操作过于频繁');
-        //     return;
-        // }
-
-        var scale = parseInt(ele.dataset.scale);
-        _scaleStep = _calcScaleStep(scale, SCALE_STEP);
-        // _scaleStep = SCALE_STEP;
-        // ele.dataset.timestamp = new Date().getTime();
-        if(delta > 0) {
-            if(scale + _scaleStep > SCALE_MAX) {
-                return;
-            }
-            scale += _scaleStep;
-        }else if(delta < 0) {
-            if(scale - _scaleStep < SCALE_MIN) {
-                return;
-            }
-            scale -= _scaleStep;
+        // 限制缩放速度
+        if (ele.wheeling) {
+            return;
         }
-        console.info(scale, SCALE_MIN, SCALE_MAX);
+        ele.wheeling = true;
+        setTimeout(function() {
+            ele.wheeling = false;
+        }, SCALE_TOLERANT);
+
+        var oldScale = scale = parseInt(ele.dataset.scale);
+        // _scaleStep = _calcScaleStep(scale, SCALE_STEP);
+        if(delta > 0) {
+            if(scale + SCALE_STEP > SCALE_MAX) {
+                return;
+            }
+            scale += SCALE_STEP;
+        }else if(delta < 0) {
+            if(scale - SCALE_STEP < SCALE_MIN) {
+                return;
+            }
+            scale -= SCALE_STEP;
+        }
+
+        // 显示缩放百分比
+        var perScale = oldScale;
+        var perNums = ANIMATE_DURATION / PERCENT_INTERVAL;
+        var perStep = (scale - oldScale) / perNums;
+        if(ele.perTimer) clearInterval(ele.perTimer);
+        ele.perTimer = setInterval(function() {
+            if(perNums <= 0) {
+                clearInterval(ele.perTimer);
+                // perScale = scale;
+                _hidePercent(ele.perEle);
+                return
+            }else {
+                perNums--;
+                perScale += perStep;
+            }
+            _setPercent(ele.perEle, perScale);
+        }, PERCENT_INTERVAL);
 
         var pointer = {
             x: evt.pageX,
@@ -190,12 +214,31 @@
      * @private
      */
     function _calcScaleStep(scale, normalStep) {
-        if(scale > 15) {
+        if(scale > 80) {
+            normalStep = 20;
+        }else if(scale > 15) {
             normalStep = 6;
         }else {
             normalStep = 2;
         }
-
         return normalStep;
+    }
+
+    function _createPercentEle() {
+        var ele = document.createElement('div');
+        ele.className = 'aDrawer-percent';
+        ele.innerHTML = '100 %';
+        return ele;
+    }
+
+    function _setPercent(perEle, perVal) {
+        perEle.innerHTML = Math.round(perVal * 10) + ' %';
+        var w = perEle.scrollWidth;
+        perEle.style.left = 'calc(50% - ' + w / 2 + 'px)';
+        perEle.style.opacity = 1;
+    }
+
+    function _hidePercent(perEle) {
+        perEle.style.opacity = 0;
     }
 })(window);

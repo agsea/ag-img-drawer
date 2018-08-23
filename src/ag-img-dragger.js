@@ -7,6 +7,7 @@
     global.AgImgDragger = {
         init: function(eleId) {
             var dragEle = document.getElementById(eleId);
+            var maskEle = dragEle.querySelector('.aDrawer-mask');
             if(dragEle.initializeDrag) return;
 
             var container = dragEle.parentNode;
@@ -22,6 +23,8 @@
                 if(evt.which === 1) {
                     hit = true;
                     dragEle.classList.remove('ag-smooth');
+                    maskEle.classList.remove('grab');
+                    maskEle.classList.add('grabbing');
 
                     //当前鼠标位置
                     var mouseX = evt.clientX || evt.pageX || evt.screenX;
@@ -63,6 +66,8 @@
                 if(evt.which === 1) {
                     hit = false;
                     dragEle.classList.add('ag-smooth');
+                    maskEle.classList.add('grab');
+                    maskEle.classList.remove('grabbing');
                 }
             });
 
@@ -72,7 +77,6 @@
                     evt.preventDefault();
                     spaceKey = true;
                     if(dragEle.dataset.dragDirectly === 'false') {
-                        var maskEle = dragEle.querySelector('.aDrawer-mask');
                         maskEle.style.display = 'block';
                     }
                 }
@@ -84,7 +88,6 @@
                     evt.preventDefault();
                     spaceKey = false;
                     if(dragEle.dataset.dragDirectly === 'false') {
-                        var maskEle = dragEle.querySelector('.aDrawer-mask');
                         maskEle.style.display = 'none';
                     }
                 }

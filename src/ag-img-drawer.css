@@ -15,10 +15,25 @@
 }
 .aDrawer{
     position: absolute;
-    overflow: hidden;
+    background-size: 100% 100%;
+    background-position: 0px 0px;
+    background-repeat: no-repeat;
+    /* overflow: hidden; */
 }
 .aDrawer.show{
     display: block;
+}
+.aDrawer-percent {
+    position: absolute;
+    padding: 3px 10px;
+    left: calc(50% - 32px);
+    top: calc(50% - 13px);
+    color: white;
+    background-color: rgba(0, 0, 0, 0.383);
+    font-size: 15px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
 }
 
 /*悬浮窗*/
@@ -65,7 +80,7 @@
     top: 0px;
     background-color: transparent;
     z-index: 3;
-    cursor: url("./images/cursor/hand-open.ico"), auto;
+    /* cursor: url("./images/cursor/hand-open.ico"), auto; */
 }
 .aDrawer-mask.dark{
     background-color: rgba(6, 6, 6, 0.6);
@@ -74,4 +89,19 @@
     transform-origin: center center;
     /* transition: all 0.4s cubic-bezier(0.22, 0.61, 0.36, 1); */
     transition: all 0.5s ease-out;
+}
+.ag-back-transparent {
+    background: transparent !important;
+}
+
+/* 抓手 */
+.grab {
+    cursor: -webkit-grab;
+    cursor: -moz-grab;
+    cursor: grab;
+}
+.grabbing {
+    cursor: -webkit-grabbing;
+    cursor: -moz-grabbing;
+    cursor: grabbing;
 }

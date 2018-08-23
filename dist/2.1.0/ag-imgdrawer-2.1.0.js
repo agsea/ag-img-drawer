@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.1.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件 */
-/*! Modified on 2018/07/26 18:05:28 */
+/*! Modified on 2018/08/13 22:39:01 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -11,6 +11,7 @@
     global.AgImgDragger = {
         init: function(eleId) {
             var dragEle = document.getElementById(eleId);
+            var maskEle = dragEle.querySelector('.aDrawer-mask');
             if(dragEle.initializeDrag) return;
 
             var container = dragEle.parentNode;
@@ -26,6 +27,8 @@
                 if(evt.which === 1) {
                     hit = true;
                     dragEle.classList.remove('ag-smooth');
+                    maskEle.classList.remove('grab');
+                    maskEle.classList.add('grabbing');
 
                     //当前鼠标位置
                     var mouseX = evt.clientX || evt.pageX || evt.screenX;
@@ -67,6 +70,8 @@
                 if(evt.which === 1) {
                     hit = false;
                     dragEle.classList.add('ag-smooth');
+                    maskEle.classList.add('grab');
+                    maskEle.classList.remove('grabbing');
                 }
             });
 
@@ -76,7 +81,6 @@
                     evt.preventDefault();
                     spaceKey = true;
                     if(dragEle.dataset.dragDirectly === 'false') {
-                        var maskEle = dragEle.querySelector('.aDrawer-mask');
                         maskEle.style.display = 'block';
                     }
                 }
@@ -88,7 +92,6 @@
                     evt.preventDefault();
                     spaceKey = false;
                     if(dragEle.dataset.dragDirectly === 'false') {
-                        var maskEle = dragEle.querySelector('.aDrawer-mask');
                         maskEle.style.display = 'none';
                     }
                 }
@@ -114,6 +117,7 @@
         backgroundUrl: null,  //背景图片地址
         autoAdjustment: true,   //根据容器大小自动调整绘图器宽高
         loadingMask: true,  //加载动画遮罩
+        lockBoundary: true, //锁定操作边界在图片范围内
         afterInitialize: function() {},
         afterAdd: function(object) {},      //添加对象回调，携带一个参数为所添加的对象，添加包括所有的绘制情况
         afterDraw: function(object) {},     //绘制回调，携带一个参数为所绘制的对象
@@ -123,7 +127,8 @@
         afterDelete: function(objects, ifCtrl) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
         afterClear: function(objects) {},           //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},          //选中物体回调，携带一个参数为所选中的对象数组
-        afterCancelSelect: function() {},           //取消选中物体回调
+        afterCancelSelect: function() {},           //选中集清空时的回调
+        afterObjectDeSelect: function() {},           //取消选中物体回调
         afterCopy: function(objects) {},            //复制选中对象的回调，携带参数：所复制的对象集合
         afterPaste: function(objects) {},           //粘贴选中对象的回调，携带一个参数为所粘贴的对象集合
     };
@@ -167,11 +172,8 @@
         move: {x: 0, y: 0}
     };
 
-    // 鼠标指针图片Base64
-    var CURSOR = {
-        handOpen: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABVVVUGMzMzBf///wEzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFVVVQM7OzucQUFB1D09Pes4ODj4NDQ0/TU1Nfw2Njb7NjY2+jMzM/82NjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8ojMzM//Q0ND/5eXl//f39//////////////////7+/v/g4OD/z8/P6UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg4OFdHR0f18fHx///////////////////////////////////////Pz8//QUFB3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3Pj4+9d7e3v////////////////////////////////////////////////9aWlrzNTU1YQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0ejMzM//h4eH//////////////////////////////////////////////////////9vb2/87OzvvOTk5CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMzczMzP/zs7O/////////////////////////////////////////////////////////////////2NjY/I1NTVbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRFPj4+9cPDw///////////////////////////////////////////////////////////////////////xcXF/z8/P84AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMzMzLTs7O/TV1dX////////////////////////////////////////////////////////////////////////////t7e3/Ojo68wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEZGRgs7Ozvkvb29/f////////////////////////////////////////////////////////////////////////////////////89PT32PT09FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOTk5eWpqavT//////////////////////////////////////////////////////////////////////////////////////////01NTfAzMzMtAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wE8PDzt39/f////////////////////////////////////////////////////////////////////////////////////////////XV1d7zU1NT8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1PlFRUfH//////////////////////Pz8//////////////////////////////////////////////////////////////////////9wcHDyNDQ0VAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2anp6e/P///////////////zMzM/8zMzP//////////////////////////////////////////////////////////////////////6enp/4/Pz+mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw8PO7j4+P///////////+srKz9MzMz/4+Pj/r/////////////////////////////////////////////////////////////////////6Ojo/zo6OvNVVVUDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDQ2S0tL8v//////////8PDw/zw8PPY5OTnIrq6u////////////////////////////////////////////////////////////////////////////U1NT8DMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHuQkJD5//////////9PT0/7PDw8nUJCQszKysr//////////////////////////////////////////////////////6Ojo/+srKz8//////////+goKD8PDw8lgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj4+qbKysv//////kJCQ+zMzM/9VVVUGPT096+Tk5P///////////zk5Of59fX3////////////Ly8v/MzMz////////////e3t7/zMzM////////////9TU1P8/Pz/fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7OzuHMzMz/15eXu48PDzcPT09FUBAQAQ2Njb8////////////////MzMz/5aWlv///////////8bGxv8zMzP///////////+8vLz/MzMz/9nZ2f///////f39/zo6OvgzMzMUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3NTU1Vjk5OQkAAAAANTU1IkNDQ/P//////////9PT0/8zMzP/qamp////////////t7e3/zMzM//5+fn//////8/Pz/8zMzP/hYWF9///////////aWlp8DMzM1UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2NjZCXV1d7///////////mJiY+zMzM/+qqqr///////////+jo6P/MzMz/+Pj4///////4uLi/zc3N/U7Ozv29PT0//////+ZmZn9Nzc3hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NWB5eXnz//////////9XV1fwPDw8q6urq////////////4mJifg7Ozvgx8fH///////y8vL/ODg49T4+PqSWlpb6/////7i4uP9AQECyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0e5aWlvz/////8/Pz/zg4OPg9PT2eqamp////////////b29v8DU1Ne6rq6v///////////81NTX9ODg4IDk5Offg4OD/t7e3/zMzM/oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2eqqqq//////+/v7//Q0NDwz4+Ppypqan///////////9SUlLvMzMzgouLi/n//////////z8/P/U6OjoWPDw8VTMzM/89PT38NDQ0ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENDQ7i8vLz//////4iIiPg1NTV0Pj4+nKmpqf///////////zw8PPYzMzNQYmJi7///////////SUlJ8TMzMygAAAAANTU1ZjQ0NHoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERExMbGxv//////UVFR7zc3Nzg/Pz+bq6ur///////39/f/NjY2+zs7Oxo9PT31//////////9UVFTvNjY2NAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBQUG0urq6/+7u7v85OTn0SUlJBz8/P5qqqqr//////93d3f8/Pz/i////AT8/P+Ta2tr//////1NTU+43NzczAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NYN9fX34SkpK/Do6Op8AAAAAPj4+nKurq///////vb29/0JCQroAAAAAOTk5eGFhYfX/////Ozs7+DU1NR0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2EzMzM/8zMzP/VVVVAwAAAAA3NzeKn5+f//////+SkpL7Nzc3gQAAAABAQEAEMzMz/zMzM/81NTX3////AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////AQAAAAAAAAAAAAAAADQ0NGd7e3v0/////0JCQvg2NjZCAAAAAAAAAABVVVUDNjY2TFVVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1IjMzM/9vb2/9MzMz/1VVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2TDQ0NPE2NjYTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///D///wAf//8AH//+AB///AAP//gAB//wAAf/4AAH/8AAB/+AAAP/gAAD/wAAA/8AAAP/AAAD/wAAAf4AAAH+AAAB/gAAAf4AAAD/EAAA//AAAP/wAAD/8AAA//AAAP/wAAn/8AAP//AAD//wgg//8IIP//uDH///g////8f/8=',
-        handHold: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NhMzMzM8NTU1XDQ0NHA1NTV5MzMzaTQ0NFk0NDRJNjY2OTMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDyUMzMz/1hYWO50dHTyjIyM+JSUlPuDg4P2cnJy8WNjY+9VVVXvMzMz/zc3N1gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7GjMzM//x8fH///////////////////////////////////////////+urq7/PT09xgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODh3dnZ29f///////////////////////////////////////////////5qamvw5OTmOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0OzMzM/7f39//////////////////////////////////////////////////a2tr8DQ0NFMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzM0szMzP/0tLS//////////////////////////////////////////////////////9HR0fyMzMzKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NiZAQEC4SkpK9NPT0////////////////////////////////////////////////////////////zg4OPkzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODhtPT099J2dnfv6+vr/////////////////////////////////////////////////////////////////SUlJ8Tc3NyoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7ekJCQvjr6+v///////////////////////////////////////////////////////////////////////////98fHz1MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMygzMzP/5+fn/////////////////////////////////////////////////////////////////////////////////7S0tP9CQkKyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPT09k5eXl/v/////////////////////////////////////////////////////////////////////////////////////6urq/zk5OfSAgIACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDzp4ODg////////////////////////////////////////////////////////////////////////////////////////////T09P8DMzMzcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASUlJBzY2Nvz+/v7///////////////////////////////////////////////////////////////////////////////////////////+Pj4/5NjY2fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTUrSUlJ8f///////////////6enp/+rq6v//////////////////////////////////////////////////////////////////////8bGxv9CQkLIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NE9nZ2fw////////////////MzMz/3h4eP//////////////////////////////////////////////////////////////////////39/f/z8/P+YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1ZoGBgfP///////////////8zMzP/ubm5///////////////////////////////////////////////////////////////////////39/f/ODg4+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRPMzMz/+fn5///////+/v7/zMzM//z8/P///////////////////////////////////////////////////////////////////////r6+v81NTX7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7Ozt9MzMz/4eHh/ZGRkb+MzMz/////////////////////////////////////////////////////////////////////////////f39/zU1NfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzMZNTU1fDc3N786Ojr5///////////////////////////////////////////////////////////////////////////x8fH/OTk59QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2NFRUVO///////////////////////////////////////////////////////////////////////////+Li4v8+Pj7mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTU/W1tb7f///////////////zMzM/+kpKT////////////Nzc3/q6ur////////////MzMz/39/f///////wsLC/z8/P8UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADc3NyUzMzP/+/v7//////+bm5v/MzMz//39/f///////////zMzM/9vb2////////39/f8zMzP/k5OT//f39/8zMzP/MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJCQpIzMzP/f39/9TMzM/9DQ0P3///////////5+fn/MzMz/93d3f//////y8vL/zQ0NPwzMzP/MzMz/z4+Po8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHE0NDRnNTU1ajMzM//4+Pj//////4WFhfozMzP/z8/P//Pz8/8zMzP/NTU1ajc3Nw41NTUYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8kDMzM/9KSkryOjo65TU1NUgzMzP/MzMz/z4+PosAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1MDY2Nj1AQEAEAAAAADMzMwUzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////wA///4AH//8AB///AAf//gAH//wAB//wAAf/4AAH/8AAB/+AAAf/gAAD/4AAA/8AAAP/AAAD/wAAA/8AAAP/AAAD/4AAA//AAAP/8AAD//AAA//wAAP/+AAH//wAD///gH///8T/////////////////8='
-    };
+    // 动画间隔
+    var ANIMATE_DURATION = 500;
 
 
     //--------------------------------------------------------
@@ -245,11 +247,13 @@
 
         var canvasEle = _createCanvasEle();
         self.canvasEleId = canvasEle.id;
+        // self.imgEle = _createImgEle();
         self.maskEle = _createMaskEle();
         self.loadingEle = _createLoadingEle();
         self.loadingMask = option.loadingMask;
 
         var container = document.getElementById(self.containerId);
+        // container.appendChild(self.imgEle);
         container.appendChild(canvasEle);
         container.appendChild(self.maskEle);
         container.appendChild(self.loadingEle);
@@ -307,7 +311,7 @@
                 self.setSize(newWidth, newHeight, scale);
                 setTimeout(function() {
                     _setObjOverlaysShowOnScale(self, true);
-                }, 400);
+                }, ANIMATE_DURATION);
             });
             container.dataset.drawable = self.drawable;
             container.dataset.dragDirectly = self.dragDirectly;
@@ -336,7 +340,7 @@
         //创建fabric.js实例
         var canvas = self.canvas = new fabric.Canvas(self.canvasEleId);
         self.setSize(option.width, option.height, 1);
-        self.setBackgroundImage(self.backgroundImage, null);
+        self.setBackgroundImage(option.backgroundUrl, null);
         self.loadingEle.style.display = 'none';
         _setGlobalObjectProp();
         _setGlobalControlStyle();
@@ -347,6 +351,7 @@
 
         //鼠标事件
         canvas.on('mouse:down', function(evt) {
+            _hoverOnCanvas = true;
             hit = true;
             self.drawingItem = null;
             self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
@@ -371,6 +376,19 @@
             if(hit && self.drawable && (self.mode === DRAWER_MODE.draw) && !hasSelect) {
                 endX = (evt.pageX - drawParam.offsetX) / self.zoom;
                 endY = (evt.pageY - drawParam.offsetY) / self.zoom;
+                // 修正至图片范围内
+                if(self.option.lockBoundary) {
+                    if(endX < 0) {
+                        endX = 0;
+                    }else if(endX > self.originWidth) {
+                        endX = self.originWidth;
+                    }
+                    if(endY < 0) {
+                        endY = 0;
+                    }else if(endY > self.originHeight) {
+                        endY = self.originHeight;
+                    }
+                }
 
                 if(self.drawingItem) {
                     canvas.remove(self.drawingItem);
@@ -381,10 +399,10 @@
 
                 //判断绘制类型
                 if(self.drawType === DRAWER_TYPE.rect) {
-                    // tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
-                    // tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
-                    tempWidth = Math.abs(endX - startX) - self.drawStyle.borderWidth;
-                    tempHeight = Math.abs(endY - startY) - self.drawStyle.borderWidth;
+                    tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
+                    tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                    // tempWidth = Math.abs(endX - startX) - self.drawStyle.borderWidth;
+                    // tempHeight = Math.abs(endY - startY) - self.drawStyle.borderWidth;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -395,15 +413,15 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        // strokeWidth: self.drawStyle._borderWidth,
-                        strokeWidth: self.drawStyle.borderWidth,
+                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.ellipse) {
-                    // tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
-                    // tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
-                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle.borderWidth / 2;
-                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle.borderWidth / 2;
+                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                    // tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle.borderWidth / 2;
+                    // tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle.borderWidth / 2;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -414,8 +432,8 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        // strokeWidth: self.drawStyle._borderWidth,
-                        strokeWidth: self.drawStyle.borderWidth,
+                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.text) {
@@ -465,6 +483,9 @@
                         self.drawingItem.moveCursor = 'crosshair';
                     }
 
+                    self.drawingItem.lockBoundary = option.lockBoundary;
+                    self.drawingItem.canvasWidth = self.originWidth;
+                    self.drawingItem.canvasHeight = self.originHeight;
                     option.afterAdd(self.drawingItem);
                     option.afterDraw(self.drawingItem);
                 }
@@ -489,14 +510,18 @@
             if(self.drawingItem) {
                 return;
             }
+            var target = evt.target;
+            target.lockBoundary = option.lockBoundary;
+            target.canvasWidth = self.originWidth;
+            target.canvasHeight = self.originHeight;
 
             if(!self.selectable) {
-                evt.target.selectable = false;
-                evt.target.hoverCursor = 'crosshair';
-                evt.target.moveCursor = 'crosshair';
+                target.selectable = false;
+                target.hoverCursor = 'crosshair';
+                target.moveCursor = 'crosshair';
             }
 
-            _recordOriginProp(evt.target, {
+            _recordOriginProp(target, {
                 strokeWidth: self.drawStyle.borderWidth,
                 fontSize: self.drawStyle.fontSize,
                 drawIndex: self._drawIndexCounter++
@@ -508,11 +533,13 @@
             target.modified = true;
             option.afterModify(target, isSingle);
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
-            _handleAgRectModify(target, self);
+            _handleAgRectModify(target);
+            target.lockScaleInDrawer = false;
         });
         canvas.on('object:moving', function(evt) {
             var target = evt.target;
             _handleAgRectModify(target);
+            _lockObjectMoveInDrawer(target, self.originWidth, self.originHeight, self.drawStyle);
             _updateObjectOverlays(target, self.zoom);
         });
         canvas.on('object:scaling', function(evt) {
@@ -575,10 +602,10 @@
 
             if(keyCode >= 37 && keyCode <= 40) {  //方位键
                 switch(keyCode) {
-                    case 37: _moveItem(self.selectedItems, -1, 0); break;
-                    case 38: _moveItem(self.selectedItems, 0, -1); break;
-                    case 39: _moveItem(self.selectedItems, 1, 0); break;
-                    case 40: _moveItem(self.selectedItems, 0, 1); break;
+                    case 37: _moveItem(self.selectedItems, -1, 0, self); break;
+                    case 38: _moveItem(self.selectedItems, 0, -1, self); break;
+                    case 39: _moveItem(self.selectedItems, 1, 0, self); break;
+                    case 40: _moveItem(self.selectedItems, 0, 1, self); break;
                 }
                 self.refresh();
             }else if(keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
@@ -680,76 +707,67 @@
 
     /**
      * 设置背景图片，并调整图片大小以适应绘图器宽高
-     * @param {string|fabric.Image} img - 图片地址或fabric.Image对象
+     * @param {string} url - 图片地址
      * @param callback
      */
-    global.AgImgDrawer.prototype.setBackgroundImage = function(img, callback) {
+    global.AgImgDrawer.prototype.setBackgroundImage = function(url, callback) {
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
-        self.maskEle.className = (self.loadingMask) ? 'aDrawer-mask dark' : 'aDrawer-mask';
+        self.loadingMask && self.maskEle.classList.add('dark');
         self.maskEle.style.display = 'block';
 
-        if(img instanceof fabric.Image) {
-            _scaleBackgroundImage(img, self.originWidth, self.originHeight);
-            self.canvas.setBackgroundImage(img, self.canvas.renderAll.bind(self.canvas));
+        //隐藏旧背景
+        var container = document.getElementById(self.containerId);
+        _setBackgroundImage(container, null, null);
 
+        if(!url || url instanceof Object) return;
+
+        self.backgroundUrl = url;
+        fabric.Image.fromURL(url, function(oImg) {
+            _setBackgroundImage(container, url, null);
+            // self.imgEle.src = url;
+            //TODO：使用img展示背景图片，此处直接使用img元素生成fabric.Image对象，从而获取元素原始宽高
             self.loadingEle.style.display = 'none';
-            self.maskEle.className = 'aDrawer-mask';
+            self.loadingMask && self.maskEle.classList.remove('dark');
             self.maskEle.style.display = oldMaskDisplay;
             if(callback instanceof Function) {
                 callback();
             }
-        }else {
-            self.backgroundUrl = img;
-            fabric.Image.fromURL(img, function(oImg) {
-                self.backgroundImage = oImg;
-                _scaleBackgroundImage(self.backgroundImage, self.originWidth, self.originHeight);
-                self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-
-                self.loadingEle.style.display = 'none';
-                self.maskEle.className = 'aDrawer-mask';
-                self.maskEle.style.display = oldMaskDisplay;
-                if(callback instanceof Function) {
-                    callback();
-                }
-            });
-        }
+        });
     };
 
     /**
      * 设置背景图片，并更新绘图器大小
-     * @param {string|fabric.Image} img - 图片地址或fabric.Image对象
+     * @param {string} url - 图片地址
      * @param callback
      */
-    global.AgImgDrawer.prototype.setBackgroundImageWithUpdateSize = function(img, callback) {
+    global.AgImgDrawer.prototype.setBackgroundImageWithUpdateSize = function(url, callback) {
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
-        self.maskEle.className = (self.loadingMask) ? 'aDrawer-mask dark' : 'aDrawer-mask';
+        self.loadingMask && self.maskEle.classList.add('dark');
         self.maskEle.style.display = 'block';
 
-        //隐藏旧背景
-        self.backgroundImage.opacity = 0;
-        self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-        self.resetSize();
-
         //容器的父元素
-        var conParent = document.getElementById(self.containerId).parentNode;
+        var container = document.getElementById(self.containerId);
+        var conParent = container.parentNode;
         var conPWidth = parseFloat(conParent.clientWidth);
         var conPHeight = parseFloat(conParent.clientHeight);
+        //隐藏旧背景
+        _setBackgroundImage(container, null, null);
 
-        if(img instanceof fabric.Image) {
-            var newSize = _calcImgSize(conPWidth, conPHeight, img.width, img.height, self.option.padding);
-            self.backgroundImage.opacity = 1;
-            _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
-            self.canvas.setBackgroundImage(img, self.canvas.renderAll.bind(self.canvas));
+        self.backgroundUrl = url;
+        fabric.Image.fromURL(url, function(oImg) {
+            var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
             self.originWidth = newSize[0];
             self.originHeight = newSize[1];
             self.resetSize();
 
+            _setBackgroundImage(container, url, null);
+            // self.imgEle.src = url;
             self.loadingEle.style.display = 'none';
-            self.maskEle.className = 'aDrawer-mask';
+            self.loadingMask && self.maskEle.classList.remove('dark');
             self.maskEle.style.display = oldMaskDisplay;
             if(callback instanceof Function) {
                 //样式变化动画期间获取到的宽高等属性为动画开始前的属性，因此应动画结束后再去执行回调
@@ -757,29 +775,7 @@
                     callback();
                 }, 450);
             }
-        }else {
-            self.backgroundUrl = img;
-            fabric.Image.fromURL(img, function(oImg) {
-                var newSize = _calcImgSize(conPWidth, conPHeight, oImg.width, oImg.height, self.option.padding);
-                self.backgroundImage = oImg;
-                self.backgroundImage.opacity = 1;
-                _scaleBackgroundImage(self.backgroundImage, newSize[0], newSize[1]);
-                self.canvas.setBackgroundImage(self.backgroundImage, self.canvas.renderAll.bind(self.canvas));
-                self.originWidth = newSize[0];
-                self.originHeight = newSize[1];
-                self.resetSize();
-
-                self.loadingEle.style.display = 'none';
-                self.maskEle.className = 'aDrawer-mask';
-                self.maskEle.style.display = oldMaskDisplay;
-                if(callback instanceof Function) {
-                    //样式变化动画期间获取到的宽高等属性为动画开始前的属性，因此应动画结束后再去执行回调
-                    setTimeout(function() {
-                        callback();
-                    }, 450);
-                }
-            });
-        }
+        });
     };
 
     /**
@@ -964,7 +960,7 @@
     global.AgImgDrawer.prototype.clear = function() {
         this.option.afterClear(this.canvas.getObjects());
         this.canvas.clear();
-        this.setBackgroundImage(this.backgroundImage);
+        // this.setBackgroundImage(this.backgroundImage);
     };
 
     /**
@@ -1009,7 +1005,7 @@
             AgImgLarger.zoom(self.containerId, tarScale, pointer, function(newWidth, newHeight, scale) {
                 self.setSize(newWidth, newHeight, scale);
             });
-        }, 400);
+        }, ANIMATE_DURATION);
     };
 
     /**
@@ -1027,6 +1023,7 @@
         this.maskEle.style.height = height + 'px';
         this.canvas.renderAll();
 
+        _updateAllObjectSW(this, zoom);
         _updateAllObjectOverlays(this, zoom);
     };
 
@@ -1135,7 +1132,7 @@
 
         var dataURL;
         try {
-            dataURL = drawer.canvas.toDataURL({
+            dataURL = this.canvas.toDataURL({
                 format: option.format,
                 quality: option.quality
             });
@@ -1189,8 +1186,6 @@
                 if(obj.agType !== 'ag-label') {
                     obj.selectable = true;
                     obj.evented = true;
-                    // obj.hoverCursor = cursor;
-                    // obj.moveCursor = cursor;
                 }
             });
         }else {
@@ -1202,8 +1197,6 @@
                 if(obj.agType !== 'ag-label' && !obj.selected) {
                     obj.selectable = false;
                     obj.evented = false;
-                    // obj.hoverCursor = cursor;
-                    // obj.moveCursor = cursor;
                 }
             });
         }
@@ -1440,6 +1433,18 @@
     };
 
     /**
+     * 
+     * @param {高亮所有对象或取消所有高亮对象} flag 
+     */
+    global.AgImgDrawer.prototype.lightOrDarkAllObject = function(flag) {
+        if(flag) {
+            this.highlightObjects(this.canvas.getObjects());
+        }else {
+            this.darkenObjects(this.canvas.getObjects());
+        }
+    };
+
+    /**
      * 复制选中的对象（除对象的基本组成属性外，仅会额外地复制带有ag前缀的属性，且不复制object和function类型，数组除外）
      */
     global.AgImgDrawer.prototype.copySelectedObject = function() {
@@ -1483,6 +1488,16 @@
      * 创建canvas元素
      * @private
      */
+    function _createImgEle() {
+        var ele = document.createElement('img');
+        ele.className = 'aDrawer-img';
+        return ele;
+    }
+
+    /**
+     * 创建canvas元素
+     * @private
+     */
     function _createCanvasEle() {
         var canvasId = 'aegeanCanvas' + new Date().getTime();
         var cEle = document.createElement('canvas');
@@ -1501,8 +1516,7 @@
             evt.returnValue=false;
             return false;
         };
-
-        divEle.className = 'aDrawer-mask';
+        divEle.className = 'aDrawer-mask grab';
         return divEle;
     }
 
@@ -1552,7 +1566,7 @@
      * @param offsetX
      * @param offsetY
      */
-    function _moveItem(item, offsetX, offsetY) {
+    function _moveItem(item, offsetX, offsetY, _this) {
         if(!item || item.length === 0 || item.isEditing) {
             return;
         }
@@ -1564,7 +1578,14 @@
             left: item.left + offsetX,
             top: item.top + offsetY
         }).setCoords();
+        item.modified = true;
+        item.lockScaleInDrawer = false;
+        var isSingle = item.type !== 'activeSelection' && item.type !== 'group';
+        _this.option.afterModify(item, isSingle);
+
         _handleAgRectModify(item);
+        _lockObjectMoveInDrawer(item, _this.originWidth, _this.originHeight, _this.drawStyle);
+        _updateObjectOverlays(item, _this.zoom);
     }
 
     /**
@@ -1588,6 +1609,12 @@
         }
     }
 
+    function _updateAllObjectSW(_this, zoom) {
+        _this.canvas.forEachObject(function(obj, index, objs) {
+            _setStrokeWidthByScale(obj, zoom);
+        });
+    }
+
     /**
      * 根据缩放等级获取边框宽度
      * @private
@@ -1598,7 +1625,6 @@
         if(item.agType === 'ag-label') {
             return;
         }
-
         if(item.isType('rect') || item.isType('ellipse')) {
             var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
             item.set('strokeWidth', strokeWidth).setCoords();
@@ -1616,14 +1642,14 @@
      * @param scale
      */
     function _calcSWByScale(originSW, scale) {
-        var strokeWidth;
-        if(scale < 0.5) {
-            strokeWidth = originSW - 0.5;
-        }else if(scale >= 0.5 && scale < 1) {
-            strokeWidth = originSW - 1;
-        }else if(scale >= 1) {
-            strokeWidth = originSW / scale;
-        }
+        var strokeWidth = originSW / scale;
+        // if(scale < 0.5) {
+        //     strokeWidth = originSW - 0.5;
+        // }else if(scale >= 0.5 && scale < 1) {
+        //     strokeWidth = originSW - 1;
+        // }else if(scale >= 1) {
+        //     strokeWidth = originSW / scale;
+        // }
         return strokeWidth;
     }
 
@@ -1653,6 +1679,21 @@
             nOImgHeight = tempMin;
         }
         return [nOImgWidth, nOImgHeight];
+    }
+
+    /**
+     * 为元素设置背景图片
+     * @param {*} ele
+     * @param {*} url
+     * @param {*} sizeMode - 大小模式：contain、cover
+     */
+    function _setBackgroundImage(ele, url, sizeMode) {
+        if(url) {
+            ele.classList.remove('ag-back-transparent');
+            ele.style.backgroundImage = 'url("' + url + '")';
+        }else {
+            ele.classList.add('ag-back-transparent');
+        }
     }
 
     /**
@@ -1869,7 +1910,8 @@
                 var flag1 = target.isNew;
                 var flag2 = _this.editDirectly || evt.e.ctrlKey;
                 if(flag1 || flag2) {
-                    target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                    // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
+                    target.moveCursor = target.hoverCursor = '-webkit-grab';
                     _this.refresh();
                 }
             }
@@ -1897,7 +1939,8 @@
                 lObj.set('visible', lObj.showMode === 'auto' ? true : lObj.showMode);
             }
             target.selected = true;
-            target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
+            // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
+            target.moveCursor = target.hoverCursor = '-webkit-grab';
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true, false);
@@ -1921,10 +1964,14 @@
             _this.darkenObjects([target]);
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false, true);
+            _this.option.afterObjectDeSelect(target);
         });
         target.on('removed', function(evt) {
             _removeObjectOverlays(target);
             lObj && _this.canvas.remove(lObj);
+        });
+        target.on('moving', function(evt) {
+            target.moveCursor = '-webkit-grabbing';
         });
     }
 
@@ -2202,6 +2249,36 @@
         ele.style.left = tarL + 'px';
         ele.style.top = tarT + 'px';
     }
+
+    /**
+     * 限制对象不能移出图片范围
+     */
+    function _lockObjectMoveInDrawer(target, drawerW, drawerH, drawStyle) {
+        if(!target.lockBoundary) return false;
+
+        var maxL = drawerW - target.width - drawStyle.borderWidth;
+        var maxT = drawerH - target.height - drawStyle.borderWidth;
+        var l = target.left, t = target.top;
+        if(l < 0) {
+            target.set({
+                left: 0
+            }).setCoords();
+        }else if(l > maxL) {
+            target.set({
+                left: maxL
+            }).setCoords();
+        }
+        if(t < 0) {
+            target.set({
+                top: 0
+            }).setCoords();
+        }else if(t > maxT) {
+            target.set({
+                top: maxT
+            }).setCoords();
+        }
+        return true;
+    }
 })(window);
 
 /**
@@ -2211,10 +2288,14 @@
 
 ;(function(global) {
     //缩放参数：为便于计算，这里的放大比例乘以10，实际执行放大操作时再除以10
-    var SCALE_TOLERANT = 240;
+    var SCALE_TOLERANT = 10;
     var SCALE_STEP = 2;
     var SCALE_MIN = 2;
+    // 如果仅对图片放大可以进行很大程度的缩放，但如果包含canvas就会十分影响性能
     var SCALE_MAX = 60;
+    // 动画间隔
+    var ANIMATE_DURATION = 500;
+    var PERCENT_INTERVAL = 10;
 
     global.AgImgLarger = {
         init: function(eleId, afterWheel) {
@@ -2232,7 +2313,9 @@
             ele.dataset.height = ele.clientHeight;
             ele.dataset.scale = 10;
             ele.dataset.scaleStep = 2;
-            ele.dataset.timestamp = new Date().getTime();
+            var perEle = _createPercentEle();
+            ele.perEle = perEle;
+            ele.parentNode.appendChild(perEle);
 
             _registeWheelEvt(ele, afterWheel);
             ele.dataset.enlargable = true;
@@ -2270,10 +2353,8 @@
             scale = (scale % 2 === 0) ? scale : scale + 1;
 
             if(scale < SCALE_MIN) {
-                console.info('The zoom value is not in a reasonable range.');
                 scale = SCALE_MIN;
             }else if(scale > SCALE_MAX) {
-                console.info('The zoom value is not in a reasonable range.');
                 scale = SCALE_MAX;
             }
 
@@ -2319,26 +2400,46 @@
      * @private
      */
     function _wheelHandler(evt, ele, delta, afterWheelCalc) {
-        // 对连续滚轮缩放做检测
-        if(new Date().getTime() - parseInt(ele.dataset.timestamp) < SCALE_TOLERANT) {
-            // console.info('操作过于频繁');
+        // 限制缩放速度
+        if (ele.wheeling) {
             return;
         }
+        ele.wheeling = true;
+        setTimeout(function() {
+            ele.wheeling = false;
+        }, SCALE_TOLERANT);
 
-        var scale = parseInt(ele.dataset.scale);
-        _scaleStep = _calcScaleStep(scale, SCALE_STEP);
-        ele.dataset.timestamp = new Date().getTime();
+        var oldScale = scale = parseInt(ele.dataset.scale);
+        // _scaleStep = _calcScaleStep(scale, SCALE_STEP);
         if(delta > 0) {
-            if(scale + _scaleStep > SCALE_MAX) {
+            if(scale + SCALE_STEP > SCALE_MAX) {
                 return;
             }
-            scale += _scaleStep;
+            scale += SCALE_STEP;
         }else if(delta < 0) {
-            if(scale - _scaleStep < SCALE_MIN) {
+            if(scale - SCALE_STEP < SCALE_MIN) {
                 return;
             }
-            scale -= _scaleStep;
+            scale -= SCALE_STEP;
         }
+
+        // 显示缩放百分比
+        var perScale = oldScale;
+        var perNums = ANIMATE_DURATION / PERCENT_INTERVAL;
+        var perStep = (scale - oldScale) / perNums;
+        if(ele.perTimer) clearInterval(ele.perTimer);
+        ele.perTimer = setInterval(function() {
+            if(perNums <= 0) {
+                clearInterval(ele.perTimer);
+                // perScale = scale;
+                _hidePercent(ele.perEle);
+                return
+            }else {
+                perNums--;
+                perScale += perStep;
+            }
+            _setPercent(ele.perEle, perScale);
+        }, PERCENT_INTERVAL);
 
         var pointer = {
             x: evt.pageX,
@@ -2396,13 +2497,32 @@
      * @private
      */
     function _calcScaleStep(scale, normalStep) {
-        if(scale > 15) {
+        if(scale > 80) {
+            normalStep = 20;
+        }else if(scale > 15) {
             normalStep = 6;
         }else {
             normalStep = 2;
         }
-
         return normalStep;
+    }
+
+    function _createPercentEle() {
+        var ele = document.createElement('div');
+        ele.className = 'aDrawer-percent';
+        ele.innerHTML = '100 %';
+        return ele;
+    }
+
+    function _setPercent(perEle, perVal) {
+        perEle.innerHTML = Math.round(perVal * 10) + ' %';
+        var w = perEle.scrollWidth;
+        perEle.style.left = 'calc(50% - ' + w / 2 + 'px)';
+        perEle.style.opacity = 1;
+    }
+
+    function _hidePercent(perEle) {
+        perEle.style.opacity = 0;
     }
 })(window);
 
@@ -12190,6 +12310,20 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
           lockScalingY = target.lockScalingY,
           lockScalingFlip = target.lockScalingFlip;
 
+      // 限制缩放只在图片范围内
+      if(target.lockBoundary) {
+          if(x < 0 || x > target.canvasWidth) {
+            lockScalingX = true;
+          }else {
+            lockScalingX = false;
+          }
+          if(y < 0 || y > target.canvasHeight) {
+            lockScalingY = true;
+          }else {
+            lockScalingY = false;
+          }
+      }
+
       if (lockScalingX && lockScalingY) {
         return false;
       }
@@ -12232,7 +12366,9 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
         localMouse.y = 0;
       }
 
-      if (by === 'equally' && !lockScalingX && !lockScalingY) {
+      if (by === 'equally' /*&& !lockScalingX && !lockScalingY*/) {
+        transform.lockScalingX = lockScalingX;
+        transform.lockScalingY = lockScalingY;
         scaled = this._scaleObjectEqually(localMouse, target, transform, _dim);
       }
       else if (!by) {
@@ -12248,6 +12384,7 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
       transform.newScaleX = scaleX;
       transform.newScaleY = scaleY;
       forbidScalingX || forbidScalingY || this._flipObject(transform, by);
+
       return scaled;
     },
 
@@ -12278,8 +12415,12 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
       transform.newScaleY = signY * Math.abs(transform.original.scaleY * _scaleFactorY);
 
       scaled = transform.newScaleX !== target.scaleX || transform.newScaleY !== target.scaleY;
-      target.set('scaleX', transform.newScaleX);
-      target.set('scaleY', transform.newScaleY);
+      if(!transform.lockScalingX) {
+          target.set('scaleX', transform.newScaleX);
+      }
+      if(!transform.lockScalingY) {
+        target.set('scaleY', transform.newScaleY);
+      }
       return scaled;
     },
 

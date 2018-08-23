@@ -14,11 +14,11 @@ $().ready(function() {
         backgroundUrl: 'images/big_img1.jpg',
         autoAdjustment: true,
         loadingMask: false,
-        // lockBoundary: false,
+        lockBoundary: true,
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('draw');
+            drawer.setMode('edit');
             drawer.setEditDirectly(true);
             drawRects();
             // drawer.setExistObjectSelectable(false);
@@ -38,24 +38,27 @@ $().ready(function() {
             drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
-            // console.info('修改', object, isSingle);
+            console.info('修改', object, isSingle);
         },
         afterEnter(object, isSingle, isModified) {
-            // console.info('回车', object, isSingle, isModified);
+            console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
             // console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
-            // console.info('删除', objects);
+            console.info('删除', objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            // console.info('选中', objects);
+            console.info('选中', objects);
+        },
+        afterObjectDeSelect: function(object) {
+            console.info('单个物体取消选中', object);
         },
         afterCopy: function(objects, source) {
             console.info('复制', objects);
@@ -104,10 +107,10 @@ function zoomOut() {
     drawer.zoomOut();
 }
 function changeBackground() {
-    drawer.setBackgroundImageWithUpdateSize('images/big_img2.jpg');
+    drawer.setBackgroundImageWithUpdateSize('images/img_1.jpg');
 }
 function changeBackground2() {
-    drawer.setBackgroundImageWithUpdateSize('images/big_img3.jpg');
+    drawer.setBackgroundImageWithUpdateSize('images/img_2.jpg');
 }
 
 //初始化滑动开关
@@ -283,19 +286,19 @@ function drawRects() {
             width: 100,
             height: 160,
             left: 200 * i,
-            top: 200 * i + 50,
+            top: 150 * i,
             // showLabel: true
         });
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
         drawer.createOverlay({
-            ele: createLabelPopu('没有什么能够阻挡-' + i),
+            ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
             target: agRect,
             position: 'top',
             visible: 'auto'
         });
         drawer.createOverlay({
-            ele: createPopu('没有什么能够阻挡-' + i),
+            ele: createPopu('这是一个位于下面悬浮框-' + i),
             target: agRect,
             position: 'bottom',
             visible: false
@@ -303,18 +306,6 @@ function drawRects() {
 
         groupObjectMap['groupObj' + groupCounter] = agRect;
     }
-
-    var rectObj = new fabric.Rect({
-        width: 150,
-        height: 150,
-        fill: 'red',
-    });
-    var testObj = new fabric.Group([rectObj], {
-        left: 400,
-        top: 400
-    });
-    drawer.addObject(testObj);
-
     //console.info(groupObjectMap);
 }
 
@@ -352,62 +343,6 @@ function drawTest() {
     drawer.getFabricCanvas().add(tstGroup);
 }
 
-/**
- * 根据矩形框大小获取标签左上边距，标签字体大小
- * @param w
- * @param h
- * @return {Object}
- */
-function getLabelStyle(w, h) {
-    var style = {};
-
-    //计算左边距
-    if(w < 5) {
-        style.left = -8;
-    }else if(w >= 5 && w < 10) {
-        style.left = -8;
-    }else if(w >= 10 && w < 15) {
-        style.left = 1;
-    }else if(w >= 15 && w < 20) {
-        style.left = 3;
-    }else if(w >= 20 && w < 30) {
-        style.left = 4;
-    }else if(w >= 30) {
-        style.left = 6;
-    }
-
-    //计算上边距
-    if(h < 5) {
-        style.top = 9;
-    }else if(h >= 5 && h < 10) {
-        style.top = 9;
-    }else if(h >= 10 && h < 15) {
-        style.top = 0;
-    }else if(h >= 15 && h < 20) {
-        style.top = 2;
-    }else if(h >= 20 && h < 30) {
-        style.top = 4;
-    }else if(h >= 30) {
-        style.top = 6;
-    }
-
-    //计算字体大小
-    var min = (w < h) ? w : h;
-    if(min < 5) {
-        style.fontSize = 0.1;
-    }else if(min >= 5 && min < 10) {
-        style.fontSize = 1;
-    }else if(min >= 10 && min < 20) {
-        style.fontSize = 12;
-    }else if(min >= 20 && min < 30) {
-        style.fontSize = 14;
-    }else if(min >= 30) {
-        style.fontSize = 18;
-    }
-
-    return style;
-}
-
 function light() {
     highlightGroupObject(groupObjectMap['groupObj1']);
 }
@@ -433,10 +368,8 @@ function refresh() {
  * 高亮显示组对象
  */
 function highlightGroupObject(obj) {
-    console.info(obj);
     drawer.highlightObjects([obj]);
 }
-
 /**
  * 取消高亮显示组对象
  */

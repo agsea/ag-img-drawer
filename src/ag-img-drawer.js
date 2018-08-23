@@ -22,7 +22,8 @@
         afterDelete: function(objects, ifCtrl) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
         afterClear: function(objects) {},           //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},          //选中物体回调，携带一个参数为所选中的对象数组
-        afterCancelSelect: function() {},           //取消选中物体回调
+        afterCancelSelect: function() {},           //选中集清空时的回调
+        afterObjectDeSelect: function() {},           //取消选中物体回调
         afterCopy: function(objects) {},            //复制选中对象的回调，携带参数：所复制的对象集合
         afterPaste: function(objects) {},           //粘贴选中对象的回调，携带一个参数为所粘贴的对象集合
     };
@@ -66,11 +67,6 @@
         move: {x: 0, y: 0}
     };
 
-    // 鼠标指针图片Base64
-    var CURSOR = {
-        handOpen: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABVVVUGMzMzBf///wEzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFVVVQM7OzucQUFB1D09Pes4ODj4NDQ0/TU1Nfw2Njb7NjY2+jMzM/82NjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8ojMzM//Q0ND/5eXl//f39//////////////////7+/v/g4OD/z8/P6UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg4OFdHR0f18fHx///////////////////////////////////////Pz8//QUFB3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3Pj4+9d7e3v////////////////////////////////////////////////9aWlrzNTU1YQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0ejMzM//h4eH//////////////////////////////////////////////////////9vb2/87OzvvOTk5CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMzczMzP/zs7O/////////////////////////////////////////////////////////////////2NjY/I1NTVbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRFPj4+9cPDw///////////////////////////////////////////////////////////////////////xcXF/z8/P84AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMzMzLTs7O/TV1dX////////////////////////////////////////////////////////////////////////////t7e3/Ojo68wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEZGRgs7Ozvkvb29/f////////////////////////////////////////////////////////////////////////////////////89PT32PT09FQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOTk5eWpqavT//////////////////////////////////////////////////////////////////////////////////////////01NTfAzMzMtAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wE8PDzt39/f////////////////////////////////////////////////////////////////////////////////////////////XV1d7zU1NT8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1PlFRUfH//////////////////////Pz8//////////////////////////////////////////////////////////////////////9wcHDyNDQ0VAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2anp6e/P///////////////zMzM/8zMzP//////////////////////////////////////////////////////////////////////6enp/4/Pz+mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw8PO7j4+P///////////+srKz9MzMz/4+Pj/r/////////////////////////////////////////////////////////////////////6Ojo/zo6OvNVVVUDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDQ2S0tL8v//////////8PDw/zw8PPY5OTnIrq6u////////////////////////////////////////////////////////////////////////////U1NT8DMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHuQkJD5//////////9PT0/7PDw8nUJCQszKysr//////////////////////////////////////////////////////6Ojo/+srKz8//////////+goKD8PDw8lgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj4+qbKysv//////kJCQ+zMzM/9VVVUGPT096+Tk5P///////////zk5Of59fX3////////////Ly8v/MzMz////////////e3t7/zMzM////////////9TU1P8/Pz/fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7OzuHMzMz/15eXu48PDzcPT09FUBAQAQ2Njb8////////////////MzMz/5aWlv///////////8bGxv8zMzP///////////+8vLz/MzMz/9nZ2f///////f39/zo6OvgzMzMUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzN3NTU1Vjk5OQkAAAAANTU1IkNDQ/P//////////9PT0/8zMzP/qamp////////////t7e3/zMzM//5+fn//////8/Pz/8zMzP/hYWF9///////////aWlp8DMzM1UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2NjZCXV1d7///////////mJiY+zMzM/+qqqr///////////+jo6P/MzMz/+Pj4///////4uLi/zc3N/U7Ozv29PT0//////+ZmZn9Nzc3hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NWB5eXnz//////////9XV1fwPDw8q6urq////////////4mJifg7Ozvgx8fH///////y8vL/ODg49T4+PqSWlpb6/////7i4uP9AQECyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0e5aWlvz/////8/Pz/zg4OPg9PT2eqamp////////////b29v8DU1Ne6rq6v///////////81NTX9ODg4IDk5Offg4OD/t7e3/zMzM/oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9PT2eqqqq//////+/v7//Q0NDwz4+Ppypqan///////////9SUlLvMzMzgouLi/n//////////z8/P/U6OjoWPDw8VTMzM/89PT38NDQ0ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAENDQ7i8vLz//////4iIiPg1NTV0Pj4+nKmpqf///////////zw8PPYzMzNQYmJi7///////////SUlJ8TMzMygAAAAANTU1ZjQ0NHoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERExMbGxv//////UVFR7zc3Nzg/Pz+bq6ur///////39/f/NjY2+zs7Oxo9PT31//////////9UVFTvNjY2NAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBQUG0urq6/+7u7v85OTn0SUlJBz8/P5qqqqr//////93d3f8/Pz/i////AT8/P+Ta2tr//////1NTU+43NzczAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADU1NYN9fX34SkpK/Do6Op8AAAAAPj4+nKurq///////vb29/0JCQroAAAAAOTk5eGFhYfX/////Ozs7+DU1NR0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2EzMzM/8zMzP/VVVVAwAAAAA3NzeKn5+f//////+SkpL7Nzc3gQAAAABAQEAEMzMz/zMzM/81NTX3////AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////AQAAAAAAAAAAAAAAADQ0NGd7e3v0/////0JCQvg2NjZCAAAAAAAAAABVVVUDNjY2TFVVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1IjMzM/9vb2/9MzMz/1VVVQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2TDQ0NPE2NjYTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///D///wAf//8AH//+AB///AAP//gAB//wAAf/4AAH/8AAB/+AAAP/gAAD/wAAA/8AAAP/AAAD/wAAAf4AAAH+AAAB/gAAAf4AAAD/EAAA//AAAP/wAAD/8AAA//AAAP/wAAn/8AAP//AAD//wgg//8IIP//uDH///g////8f/8=',
-        handHold: 'data:image/x-icon;base64,AAABAAEAICAAAAEAIACoEAAAFgAAACgAAAAgAAAAQAAAAAEAIAAAAAAAgBAAABMLAAATCwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NhMzMzM8NTU1XDQ0NHA1NTV5MzMzaTQ0NFk0NDRJNjY2OTMzM0EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDyUMzMz/1hYWO50dHTyjIyM+JSUlPuDg4P2cnJy8WNjY+9VVVXvMzMz/zc3N1gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7GjMzM//x8fH///////////////////////////////////////////+urq7/PT09xgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODh3dnZ29f///////////////////////////////////////////////5qamvw5OTmOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANDQ0OzMzM/7f39//////////////////////////////////////////////////a2tr8DQ0NFMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzM0szMzP/0tLS//////////////////////////////////////////////////////9HR0fyMzMzKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY2NiZAQEC4SkpK9NPT0////////////////////////////////////////////////////////////zg4OPkzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4ODhtPT099J2dnfv6+vr/////////////////////////////////////////////////////////////////SUlJ8Tc3NyoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOzs7ekJCQvjr6+v///////////////////////////////////////////////////////////////////////////98fHz1MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzMygzMzP/5+fn/////////////////////////////////////////////////////////////////////////////////7S0tP9CQkKyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPT09k5eXl/v/////////////////////////////////////////////////////////////////////////////////////6urq/zk5OfSAgIACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8PDzp4ODg////////////////////////////////////////////////////////////////////////////////////////////T09P8DMzMzcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASUlJBzY2Nvz+/v7///////////////////////////////////////////////////////////////////////////////////////////+Pj4/5NjY2fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTUrSUlJ8f///////////////6enp/+rq6v//////////////////////////////////////////////////////////////////////8bGxv9CQkLIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NE9nZ2fw////////////////MzMz/3h4eP//////////////////////////////////////////////////////////////////////39/f/z8/P+YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1ZoGBgfP///////////////8zMzP/ubm5///////////////////////////////////////////////////////////////////////39/f/ODg4+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0NDRPMzMz/+fn5///////+/v7/zMzM//z8/P///////////////////////////////////////////////////////////////////////r6+v81NTX7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7Ozt9MzMz/4eHh/ZGRkb+MzMz/////////////////////////////////////////////////////////////////////////////f39/zU1NfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMzMZNTU1fDc3N786Ojr5///////////////////////////////////////////////////////////////////////////x8fH/OTk59QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANjY2NFRUVO///////////////////////////////////////////////////////////////////////////+Li4v8+Pj7mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1NTU/W1tb7f///////////////zMzM/+kpKT////////////Nzc3/q6ur////////////MzMz/39/f///////wsLC/z8/P8UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADc3NyUzMzP/+/v7//////+bm5v/MzMz//39/f///////////zMzM/9vb2////////39/f8zMzP/k5OT//f39/8zMzP/MzMzaQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEJCQpIzMzP/f39/9TMzM/9DQ0P3///////////5+fn/MzMz/93d3f//////y8vL/zQ0NPwzMzP/MzMz/z4+Po8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQ0NHE0NDRnNTU1ajMzM//4+Pj//////4WFhfozMzP/z8/P//Pz8/8zMzP/NTU1ajc3Nw41NTUYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPDw8kDMzM/9KSkryOjo65TU1NUgzMzP/MzMz/z4+PosAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANTU1MDY2Nj1AQEAEAAAAADMzMwUzMzMKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////wA///4AH//8AB///AAf//gAH//wAB//wAAf/4AAH/8AAB/+AAAf/gAAD/4AAA/8AAAP/AAAD/wAAA/8AAAP/AAAD/4AAA//AAAP/8AAD//AAA//wAAP/+AAH//wAD///gH///8T/////////////////8='
-    };
     // 动画间隔
     var ANIMATE_DURATION = 500;
 
@@ -146,11 +142,13 @@
 
         var canvasEle = _createCanvasEle();
         self.canvasEleId = canvasEle.id;
+        // self.imgEle = _createImgEle();
         self.maskEle = _createMaskEle();
         self.loadingEle = _createLoadingEle();
         self.loadingMask = option.loadingMask;
 
         var container = document.getElementById(self.containerId);
+        // container.appendChild(self.imgEle);
         container.appendChild(canvasEle);
         container.appendChild(self.maskEle);
         container.appendChild(self.loadingEle);
@@ -274,16 +272,16 @@
                 endX = (evt.pageX - drawParam.offsetX) / self.zoom;
                 endY = (evt.pageY - drawParam.offsetY) / self.zoom;
                 // 修正至图片范围内
-                if(drawer.option.lockBoundary) {
+                if(self.option.lockBoundary) {
                     if(endX < 0) {
                         endX = 0;
-                    }else if(endX > drawer.originWidth) {
-                        endX = drawer.originWidth;
+                    }else if(endX > self.originWidth) {
+                        endX = self.originWidth;
                     }
                     if(endY < 0) {
                         endY = 0;
-                    }else if(endY > drawer.originHeight) {
-                        endY = drawer.originHeight;
+                    }else if(endY > self.originHeight) {
+                        endY = self.originHeight;
                     }
                 }
 
@@ -296,10 +294,10 @@
 
                 //判断绘制类型
                 if(self.drawType === DRAWER_TYPE.rect) {
-                    // tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
-                    // tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
-                    tempWidth = Math.abs(endX - startX) - self.drawStyle.borderWidth;
-                    tempHeight = Math.abs(endY - startY) - self.drawStyle.borderWidth;
+                    tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
+                    tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                    // tempWidth = Math.abs(endX - startX) - self.drawStyle.borderWidth;
+                    // tempHeight = Math.abs(endY - startY) - self.drawStyle.borderWidth;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -310,15 +308,15 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        // strokeWidth: self.drawStyle._borderWidth,
-                        strokeWidth: self.drawStyle.borderWidth,
+                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.ellipse) {
-                    // tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
-                    // tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
-                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle.borderWidth / 2;
-                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle.borderWidth / 2;
+                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                    // tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle.borderWidth / 2;
+                    // tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle.borderWidth / 2;
                     tempWidth = tempWidth < 0 ? 0 : tempWidth;
                     tempHeight = tempHeight < 0 ? 0 : tempHeight;
 
@@ -329,8 +327,8 @@
                         top: tempTop,
                         fill: self.drawStyle._fill,
                         stroke: self.drawStyle.borderColor,
-                        // strokeWidth: self.drawStyle._borderWidth,
-                        strokeWidth: self.drawStyle.borderWidth,
+                        strokeWidth: self.drawStyle._borderWidth,
+                        // strokeWidth: self.drawStyle.borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
                     });
                 }else if(self.drawType === DRAWER_TYPE.text) {
@@ -380,6 +378,9 @@
                         self.drawingItem.moveCursor = 'crosshair';
                     }
 
+                    self.drawingItem.lockBoundary = option.lockBoundary;
+                    self.drawingItem.canvasWidth = self.originWidth;
+                    self.drawingItem.canvasHeight = self.originHeight;
                     option.afterAdd(self.drawingItem);
                     option.afterDraw(self.drawingItem);
                 }
@@ -427,7 +428,7 @@
             target.modified = true;
             option.afterModify(target, isSingle);
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
-            _handleAgRectModify(target, self);
+            _handleAgRectModify(target);
             target.lockScaleInDrawer = false;
         });
         canvas.on('object:moving', function(evt) {
@@ -496,10 +497,10 @@
 
             if(keyCode >= 37 && keyCode <= 40) {  //方位键
                 switch(keyCode) {
-                    case 37: _moveItem(self.selectedItems, -1, 0); break;
-                    case 38: _moveItem(self.selectedItems, 0, -1); break;
-                    case 39: _moveItem(self.selectedItems, 1, 0); break;
-                    case 40: _moveItem(self.selectedItems, 0, 1); break;
+                    case 37: _moveItem(self.selectedItems, -1, 0, self); break;
+                    case 38: _moveItem(self.selectedItems, 0, -1, self); break;
+                    case 39: _moveItem(self.selectedItems, 1, 0, self); break;
+                    case 40: _moveItem(self.selectedItems, 0, 1, self); break;
                 }
                 self.refresh();
             }else if(keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
@@ -608,18 +609,22 @@
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
-        self.maskEle.className = (self.loadingMask) ? 'aDrawer-mask dark' : 'aDrawer-mask';
+        self.loadingMask && self.maskEle.classList.add('dark');
         self.maskEle.style.display = 'block';
+
+        //隐藏旧背景
+        var container = document.getElementById(self.containerId);
+        _setBackgroundImage(container, null, null);
 
         if(!url || url instanceof Object) return;
 
         self.backgroundUrl = url;
         fabric.Image.fromURL(url, function(oImg) {
-            var container = document.getElementById(self.containerId);
             _setBackgroundImage(container, url, null);
-            //TODO：如何检测背景图片设置完成
+            // self.imgEle.src = url;
+            //TODO：使用img展示背景图片，此处直接使用img元素生成fabric.Image对象，从而获取元素原始宽高
             self.loadingEle.style.display = 'none';
-            self.maskEle.className = 'aDrawer-mask';
+            self.loadingMask && self.maskEle.classList.remove('dark');
             self.maskEle.style.display = oldMaskDisplay;
             if(callback instanceof Function) {
                 callback();
@@ -636,16 +641,16 @@
         var self = this;
         self.loadingEle.style.display = 'block';
         var oldMaskDisplay = self.maskEle.style.display;
-        self.maskEle.className = (self.loadingMask) ? 'aDrawer-mask dark' : 'aDrawer-mask';
+        self.loadingMask && self.maskEle.classList.add('dark');
         self.maskEle.style.display = 'block';
-
-        //隐藏旧背景
 
         //容器的父元素
         var container = document.getElementById(self.containerId);
         var conParent = container.parentNode;
         var conPWidth = parseFloat(conParent.clientWidth);
         var conPHeight = parseFloat(conParent.clientHeight);
+        //隐藏旧背景
+        _setBackgroundImage(container, null, null);
 
         self.backgroundUrl = url;
         fabric.Image.fromURL(url, function(oImg) {
@@ -655,8 +660,9 @@
             self.resetSize();
 
             _setBackgroundImage(container, url, null);
+            // self.imgEle.src = url;
             self.loadingEle.style.display = 'none';
-            self.maskEle.className = 'aDrawer-mask';
+            self.loadingMask && self.maskEle.classList.remove('dark');
             self.maskEle.style.display = oldMaskDisplay;
             if(callback instanceof Function) {
                 //样式变化动画期间获取到的宽高等属性为动画开始前的属性，因此应动画结束后再去执行回调
@@ -849,7 +855,7 @@
     global.AgImgDrawer.prototype.clear = function() {
         this.option.afterClear(this.canvas.getObjects());
         this.canvas.clear();
-        this.setBackgroundImage(this.backgroundImage);
+        // this.setBackgroundImage(this.backgroundImage);
     };
 
     /**
@@ -912,6 +918,7 @@
         this.maskEle.style.height = height + 'px';
         this.canvas.renderAll();
 
+        _updateAllObjectSW(this, zoom);
         _updateAllObjectOverlays(this, zoom);
     };
 
@@ -1020,7 +1027,7 @@
 
         var dataURL;
         try {
-            dataURL = drawer.canvas.toDataURL({
+            dataURL = this.canvas.toDataURL({
                 format: option.format,
                 quality: option.quality
             });
@@ -1321,6 +1328,18 @@
     };
 
     /**
+     *
+     * @param {高亮所有对象或取消所有高亮对象} flag
+     */
+    global.AgImgDrawer.prototype.lightOrDarkAllObject = function(flag) {
+        if(flag) {
+            this.highlightObjects(this.canvas.getObjects());
+        }else {
+            this.darkenObjects(this.canvas.getObjects());
+        }
+    };
+
+    /**
      * 复制选中的对象（除对象的基本组成属性外，仅会额外地复制带有ag前缀的属性，且不复制object和function类型，数组除外）
      */
     global.AgImgDrawer.prototype.copySelectedObject = function() {
@@ -1364,6 +1383,16 @@
      * 创建canvas元素
      * @private
      */
+    function _createImgEle() {
+        var ele = document.createElement('img');
+        ele.className = 'aDrawer-img';
+        return ele;
+    }
+
+    /**
+     * 创建canvas元素
+     * @private
+     */
     function _createCanvasEle() {
         var canvasId = 'aegeanCanvas' + new Date().getTime();
         var cEle = document.createElement('canvas');
@@ -1382,8 +1411,7 @@
             evt.returnValue=false;
             return false;
         };
-
-        divEle.className = 'aDrawer-mask';
+        divEle.className = 'aDrawer-mask grab';
         return divEle;
     }
 
@@ -1416,8 +1444,8 @@
         fabric.Object.prototype.cornerStyle = 'circle';
         fabric.Object.prototype.cornerColor = '#fff';
         fabric.Object.prototype.cornerStrokeColor = '#888';
-        // fabric.Object.prototype.borderColor = '#00CCFF';
-        fabric.Object.prototype.hasBorders = false;
+        fabric.Object.prototype.borderColor = '#ff0a00';
+        // fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
         fabric.Object.prototype.setControlVisible('mb', false);
@@ -1433,7 +1461,7 @@
      * @param offsetX
      * @param offsetY
      */
-    function _moveItem(item, offsetX, offsetY) {
+    function _moveItem(item, offsetX, offsetY, _this) {
         if(!item || item.length === 0 || item.isEditing) {
             return;
         }
@@ -1445,7 +1473,14 @@
             left: item.left + offsetX,
             top: item.top + offsetY
         }).setCoords();
+        item.modified = true;
+        item.lockScaleInDrawer = false;
+        var isSingle = item.type !== 'activeSelection' && item.type !== 'group';
+        _this.option.afterModify(item, isSingle);
+
         _handleAgRectModify(item);
+        _lockObjectMoveInDrawer(item, _this.originWidth, _this.originHeight, _this.drawStyle);
+        _updateObjectOverlays(item, _this.zoom);
     }
 
     /**
@@ -1469,6 +1504,12 @@
         }
     }
 
+    function _updateAllObjectSW(_this, zoom) {
+        _this.canvas.forEachObject(function(obj, index, objs) {
+            _setStrokeWidthByScale(obj, zoom);
+        });
+    }
+
     /**
      * 根据缩放等级获取边框宽度
      * @private
@@ -1479,7 +1520,6 @@
         if(item.agType === 'ag-label') {
             return;
         }
-
         if(item.isType('rect') || item.isType('ellipse')) {
             var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
             item.set('strokeWidth', strokeWidth).setCoords();
@@ -1497,14 +1537,14 @@
      * @param scale
      */
     function _calcSWByScale(originSW, scale) {
-        var strokeWidth;
-        if(scale < 0.5) {
-            strokeWidth = originSW - 0.5;
-        }else if(scale >= 0.5 && scale < 1) {
-            strokeWidth = originSW - 1;
-        }else if(scale >= 1) {
-            strokeWidth = originSW / scale;
-        }
+        var strokeWidth = originSW / scale;
+        // if(scale < 0.5) {
+        //     strokeWidth = originSW - 0.5;
+        // }else if(scale >= 0.5 && scale < 1) {
+        //     strokeWidth = originSW - 1;
+        // }else if(scale >= 1) {
+        //     strokeWidth = originSW / scale;
+        // }
         return strokeWidth;
     }
 
@@ -1543,8 +1583,12 @@
      * @param {*} sizeMode - 大小模式：contain、cover
      */
     function _setBackgroundImage(ele, url, sizeMode) {
-        ele.style.background = 'url("' + url + '") 0 0 no-repeat';
-        ele.style.backgroundSize = '100% 100%';
+        if(url) {
+            ele.classList.remove('ag-back-transparent');
+            ele.style.backgroundImage = 'url("' + url + '")';
+        }else {
+            ele.classList.add('ag-back-transparent');
+        }
     }
 
     /**
@@ -1762,7 +1806,7 @@
                 var flag2 = _this.editDirectly || evt.e.ctrlKey;
                 if(flag1 || flag2) {
                     // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
-                    target.moveCursor = target.hoverCursor = 'move';
+                    target.moveCursor = target.hoverCursor = '-webkit-grab';
                     _this.refresh();
                 }
             }
@@ -1791,7 +1835,7 @@
             }
             target.selected = true;
             // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
-            target.moveCursor = target.hoverCursor = 'pointer';
+            target.moveCursor = target.hoverCursor = '-webkit-grab';
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true, false);
@@ -1815,10 +1859,14 @@
             _this.darkenObjects([target]);
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false, true);
+            _this.option.afterObjectDeSelect(target);
         });
         target.on('removed', function(evt) {
             _removeObjectOverlays(target);
             lObj && _this.canvas.remove(lObj);
+        });
+        target.on('moving', function(evt) {
+            target.moveCursor = '-webkit-grabbing';
         });
     }
 
@@ -2101,6 +2149,8 @@
      * 限制对象不能移出图片范围
      */
     function _lockObjectMoveInDrawer(target, drawerW, drawerH, drawStyle) {
+        if(!target.lockBoundary) return false;
+
         var maxL = drawerW - target.width - drawStyle.borderWidth;
         var maxT = drawerH - target.height - drawStyle.borderWidth;
         var l = target.left, t = target.top;
@@ -2122,5 +2172,6 @@
                 top: maxT
             }).setCoords();
         }
+        return true;
     }
 })(window);

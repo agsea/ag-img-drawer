@@ -18,7 +18,7 @@ $().ready(function() {
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('edit');
+            drawer.setMode('draw');
             drawer.setEditDirectly(true);
             drawRects();
             // drawer.setExistObjectSelectable(false);
@@ -65,6 +65,15 @@ $().ready(function() {
         },
         afterPaste: function(objects) {
             console.info('粘贴', objects[0].agTestProp);
+        },
+        afterKeydownLeft: function() {
+            console.info('向左走');
+        },
+        afterKeydownRight: function() {
+            console.info('向右走');
+        },
+        afterKeydownEsc: function () {
+            console.info('esc');
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -280,13 +289,15 @@ function serializeObjects() {
 var groupCounter = 0;
 var groupObjectMap = {};
 function drawRects() {
-    for(var i = 0; i < 2; i++) {
+    // for(var i = 0; i < 5; i++) {
+        var i = 0;
+
         groupCounter++;
         var agRect = drawer.createRect({
-            width: 100,
-            height: 160,
+            width: 5,
+            height: 8,
             left: 200 * i,
-            top: 150 * i,
+            top: 150 * i + 50,
             // showLabel: true
         });
         agRect.set('agTestProp', 666);
@@ -303,9 +314,20 @@ function drawRects() {
             position: 'bottom',
             visible: false
         });
+        groupObjectMap['groupObj' + 1] = agRect;
 
-        groupObjectMap['groupObj' + groupCounter] = agRect;
-    }
+        var agRect2 = drawer.createRect({
+            width: 400,
+            height: 10,
+            left: 200,
+            top: 150 + 50,
+            // showLabel: true
+        });
+        agRect.set('agTestProp', 666);
+        drawer.addObject(agRect2);
+        groupObjectMap['groupObj' + 2] = agRect2;
+
+    // }
     //console.info(groupObjectMap);
 }
 

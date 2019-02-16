@@ -26,6 +26,11 @@
         afterObjectDeSelect: function() {},           //取消选中物体回调
         afterCopy: function(objects) {},            //复制选中对象的回调，携带参数：所复制的对象集合
         afterPaste: function(objects) {},           //粘贴选中对象的回调，携带一个参数为所粘贴的对象集合
+        afterKeydownLeft: function() {},
+        afterKeydownRight: function() {},
+        afterKeydownUp: function() {},
+        afterKeydownDown: function() {},
+        afterKeydownEsc: function() {}
     };
     // 绘图器模式
     // 浏览模式（browse）: 默认只能像浏览图片一样操作绘图器，无法对画布上的对象做任何操作（遮罩显示），可直接拖拽画布
@@ -70,6 +75,9 @@
     // 动画间隔
     var ANIMATE_DURATION = 500;
 
+    // 当前绘图器的引用
+    var _curDrawer = null;
+
 
     //--------------------------------------------------------
     // AgImgDrawer: 核心
@@ -88,6 +96,7 @@
             return;
         }
 
+        this.version = '2.1.0';
         this.containerId = containerId;
         this.option = option;
         this.mode = DRAWER_MODE.browse;
@@ -211,11 +220,6 @@
             container.dataset.drawable = self.drawable;
             container.dataset.dragDirectly = self.dragDirectly;
             self.initDrawer(option);
-
-            //初始化完成的回调：立即执行会出现获取不到drawer对象的问题
-            setTimeout(function() {
-                option.afterInitialize();
-            }, 100);
         }
     };
 
@@ -225,6 +229,7 @@
      */
     global.AgImgDrawer.prototype.initDrawer = function(option) {
         var self = this;
+        _curDrawer = self;
         //鼠标绘制相关变量
         var drawParam;
         var startX, startY, endX, endY;
@@ -476,76 +481,15 @@
         });
 
         //键盘事件
-        window.addEventListener('keydown', function(evt) {
-            if(evt.target.nodeName === 'input')  return;
+        window.removeEventListener('keydown', _handleKeydown, false);
+        window.addEventListener('keydown', _handleKeydown, false);
+        window.removeEventListener('keydown', _handleKeyup, false);
+        window.addEventListener('keyup', _handleKeyup, false);
 
-            var keyCode = evt.which;
-            if(evt.ctrlKey) {
-                _ctrlKey = true;
-                //ctrl键：编辑模式下摁住可选择物体
-                if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
-                    self.setExistObjectInteractive(true);
-                }
-            }
-            // 快捷键缩放
-            if(_ctrlKey && evt.altKey) {
-                switch(keyCode) {
-                    case 187: self.zoomIn(); break;    //ctrl+alt+加号
-                    case 189: self.zoomOut(); break;    //ctrl+alt+减号
-                }
-            }
-
-            if(keyCode >= 37 && keyCode <= 40) {  //方位键
-                switch(keyCode) {
-                    case 37: _moveItem(self.selectedItems, -1, 0, self); break;
-                    case 38: _moveItem(self.selectedItems, 0, -1, self); break;
-                    case 39: _moveItem(self.selectedItems, 1, 0, self); break;
-                    case 40: _moveItem(self.selectedItems, 0, 1, self); break;
-                }
-                self.refresh();
-            }else if(keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
-                if(document.activeElement.nodeName === 'BODY') {
-                    var selection = self.getSelection();
-                    self.removeObjects(selection);
-                }
-            }else if(keyCode === 67 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 复制对象：ctrl+C
-                // 判断当前焦点对象是否是文本框，如果是则不执行复制对象的操作
-                if(document.activeElement.nodeName === 'BODY') {
-                    self.copySelectedObject();
-                }
-            }else if(keyCode === 86 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 粘贴对象：ctrl+V
-                // 判断当前焦点对象是否是文本框，如果是则不执行粘贴对象的操作
-                if(document.activeElement.nodeName === 'BODY') {
-                    self.pasteSelectedObject();
-                }
-            }else if(keyCode === 13) {// 回车
-                var activeObj = self.canvas.getActiveObject();
-                if(activeObj) {
-                    var isSingle = activeObj.type !== 'activeSelection' && activeObj.type !== 'group';
-                    var isModified = activeObj.modified ? activeObj.modified : false;
-                    option.afterEnter(activeObj, isSingle, isModified);
-                }else {
-                    option.afterEnter(null, false, false);
-                }
-            }else if(keyCode === 84) {  //T键切换浏览模式
-                if(self._beforeMode) {
-                    self.setMode(self._beforeMode);
-                    self._beforeMode = null;
-                }else {
-                    self._beforeMode = self.mode;
-                    self.setMode(DRAWER_MODE.browse);
-                }
-            }
-        }, true);
-        window.addEventListener('keyup', function(evt) {
-            var keyCode = evt.which;
-            if(keyCode === 17) {    //ctrl键：编辑模式下弹起取消可选择
-                _ctrlKey = false;
-                if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
-                    self.setExistObjectInteractive(false, false);
-                }
-            }
-        }, true);
+        //初始化完成的回调：立即执行会出现获取不到drawer对象的问题
+        setTimeout(function() {
+            option.afterInitialize();
+        }, 100);
     };
 
     /**
@@ -679,7 +623,7 @@
      * @param object
      */
     global.AgImgDrawer.prototype.add = function(object) {
-        console.warn('The method add has been deprecated, please consider using addObject !');
+        console.warn('The method [addObject] has been deprecated, please consider using [addObject] !');
         this.addObject(object);
     };
 
@@ -690,6 +634,7 @@
     global.AgImgDrawer.prototype.addObject = function(object) {
         this.canvas.add(object);
         object._labelObject && this.canvas.add(object._labelObject);
+        _setStrokeWidthByScale(object, this.zoom);
         _bindEvtForObject(object, this);
         this.option.afterAdd(object);
     };
@@ -710,7 +655,7 @@
      * @param object
      */
     global.AgImgDrawer.prototype.remove = function(object) {
-        console.warn('The method remove has been deprecated, please consider using removeObject !');
+        console.warn('The method [remove] has been deprecated, please consider using [removeObject] !');
         this.removeObject(object);
     };
 
@@ -879,6 +824,7 @@
         var conT = parseFloat(container.style.marginTop);
         conL = conL ? conL : 0;
         conT = conT ? conT : 0;
+        self.disableAnimation();
 
         var clientRect = container.getBoundingClientRect();
         var conParent = container.parentNode;
@@ -893,14 +839,15 @@
         container.style.marginTop = newMarginT + 'px';
 
         // 以物体中间位置为中心缩放
-        setTimeout(function() {
-            var pointer = _getEleCenterPoint(conParent);
-            var minObjValue = (object.width > object.height) ? object.height : object.width;
-            var tarScale = 200 / minObjValue;
-            AgImgLarger.zoom(self.containerId, tarScale, pointer, function(newWidth, newHeight, scale) {
-                self.setSize(newWidth, newHeight, scale);
-            });
-        }, ANIMATE_DURATION);
+        var pointer = _getEleCenterPoint(conParent);
+        var maxObjValue = _getMinOrMaxBetween(object.width, object.height, false);
+        var scaleLimit = _getMinOrMaxBetween(conPWidth, conPHeight, true) / 3;
+        var tarScale = scaleLimit / maxObjValue;
+        AgImgLarger.zoom(self.containerId, tarScale, pointer, function(newWidth, newHeight, scale) {
+            self.setSize(newWidth, newHeight, tarScale);
+        });
+        self.enableAnimation();
+        self.setZoom(tarScale);
     };
 
     /**
@@ -916,10 +863,11 @@
         this.canvas.setZoom(zoom);
         this.maskEle.style.width = width + 'px';
         this.maskEle.style.height = height + 'px';
-        this.canvas.renderAll();
 
         _updateAllObjectSW(this, zoom);
         _updateAllObjectOverlays(this, zoom);
+
+        this.canvas.renderAll();
     };
 
     /**
@@ -928,7 +876,7 @@
      * @return {Number|*}
      */
     global.AgImgDrawer.prototype.getScale = function() {
-        console.warn('The method getScale has been deprecated, please consider using getZoom !');
+        console.warn('The method [getScale] has been deprecated, please consider using [getZoom] !');
         return this.getZoom();
     };
     /**
@@ -937,7 +885,7 @@
      * @param scale
      */
     global.AgImgDrawer.prototype.setScale = function(scale) {
-        console.warn('The method setScale has been deprecated, please consider using setZoom !');
+        console.warn('The method [setScale] has been deprecated, please consider using [setZoom] !');
         this.setZoom(scale);
     };
 
@@ -1111,6 +1059,14 @@
                 this.setExistObjectInteractive(false, false);
             }
         }
+    };
+
+    /**
+     * 移除事件监听器
+     */
+    global.AgImgDrawer.prototype.removeAllListener = function() {
+        window.removeEventListener('keydown', _handleKeydown, false);
+        window.removeEventListener('keydown', _handleKeyup, false);
     };
 
 
@@ -1328,8 +1284,8 @@
     };
 
     /**
-     *
-     * @param {高亮所有对象或取消所有高亮对象} flag
+     * 
+     * @param {高亮所有对象或取消所有高亮对象} flag 
      */
     global.AgImgDrawer.prototype.lightOrDarkAllObject = function(flag) {
         if(flag) {
@@ -1376,9 +1332,101 @@
         _setObjectOverlaysShow(target, ifShow);
     };
 
+    global.AgImgDrawer.prototype.disableAnimation = function() {
+        var self = this;
+        var container = document.getElementById(self.containerId);
+        container.classList.remove('ag-smooth');
+        this.canvas.getElement().classList.remove('ag-smooth');
+    };
+
+    global.AgImgDrawer.prototype.enableAnimation = function() {
+        var self = this;
+        var container = document.getElementById(self.containerId);
+        container.classList.add('ag-smooth');
+        this.canvas.getElement().classList.add('ag-smooth');
+    };
+
     //--------------------------------------------------------
     // 内部方法
     //--------------------------------------------------------
+    function _handleKeydown(evt) {
+        if(!_curDrawer) return;
+        var self = _curDrawer;
+        if(evt.target.nodeName === 'input')  return;
+
+        var keyCode = evt.which;
+        if(evt.ctrlKey) {
+            _ctrlKey = true;
+            //ctrl键：编辑模式下摁住可选择物体
+            if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
+                self.setExistObjectInteractive(true);
+            }
+        }
+        // 快捷键缩放
+        if(_ctrlKey && evt.altKey) {
+            switch(keyCode) {
+                case 187: self.zoomIn(); break;    //ctrl+alt+加号
+                case 189: self.zoomOut(); break;    //ctrl+alt+减号
+            }
+        }
+
+        if(keyCode >= 37 && keyCode <= 40) {  //方位键
+            switch(keyCode) {
+                case 37: _handleDireKeyEvt('left', self.selectedItems, -1, 0, self); break;
+                case 38: _handleDireKeyEvt('up', self.selectedItems, 0, -1, self); break;
+                case 39: _handleDireKeyEvt('right', self.selectedItems, 1, 0, self); break;
+                case 40: _handleDireKeyEvt('down', self.selectedItems, 0, 1, self); break;
+            }
+            self.refresh();
+        }else if(keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
+            if(document.activeElement.nodeName === 'BODY') {
+                var selection = self.getSelection();
+                self.removeObjects(selection);
+            }
+        }else if(keyCode === 67 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 复制对象：ctrl+C
+            // 判断当前焦点对象是否是文本框，如果是则不执行复制对象的操作
+            if(document.activeElement.nodeName === 'BODY') {
+                self.copySelectedObject();
+            }
+        }else if(keyCode === 86 && self.mode !== DRAWER_MODE.browse && _ctrlKey) {// 粘贴对象：ctrl+V
+            // 判断当前焦点对象是否是文本框，如果是则不执行粘贴对象的操作
+            if(document.activeElement.nodeName === 'BODY') {
+                self.pasteSelectedObject();
+            }
+        }else if(keyCode === 13) {// 回车
+            var activeObj = self.canvas.getActiveObject();
+            if(activeObj) {
+                var isSingle = activeObj.type !== 'activeSelection' && activeObj.type !== 'group';
+                var isModified = activeObj.modified ? activeObj.modified : false;
+                self.option.afterEnter(activeObj, isSingle, isModified);
+            }else {
+                self.option.afterEnter(null, false, false);
+            }
+        }else if(keyCode === 84) {  //T键切换浏览模式
+            if(self._beforeMode) {
+                self.setMode(self._beforeMode);
+                self._beforeMode = null;
+            }else {
+                self._beforeMode = self.mode;
+                self.setMode(DRAWER_MODE.browse);
+            }
+        }else if(keyCode === 27) {  //ESC键
+            self.option.afterKeydownEsc();
+        }
+    }
+
+    function _handleKeyup(evt) {
+        if(!_curDrawer) return;
+        var self = _curDrawer;
+        var keyCode = evt.which;
+        if(keyCode === 17) {    //ctrl键：编辑模式下弹起取消可选择
+            _ctrlKey = false;
+            if(self.mode === DRAWER_MODE.draw || (self.mode === DRAWER_MODE.edit && !self.editDirectly)) {
+                self.setExistObjectInteractive(false, false);
+            }
+        }
+    }
+
     /**
      * 创建canvas元素
      * @private
@@ -1444,14 +1492,30 @@
         fabric.Object.prototype.cornerStyle = 'circle';
         fabric.Object.prototype.cornerColor = '#fff';
         fabric.Object.prototype.cornerStrokeColor = '#888';
-        fabric.Object.prototype.borderColor = '#ff0a00';
-        // fabric.Object.prototype.hasBorders = false;
+        // fabric.Object.prototype.borderColor = '#00CCFF';
+        fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
         fabric.Object.prototype.setControlVisible('mb', false);
         fabric.Object.prototype.setControlVisible('mr', false);
         fabric.Object.prototype.setControlVisible('mt', false);
         fabric.Object.prototype.setControlVisible('mtr', false);
+    }
+
+    function _handleDireKeyEvt(dire, item, offsetX, offsetY, _this) {
+        if(item && item.length !== 0 && !item.isEditing) {
+            _moveItem(item, offsetX, offsetY, _this);
+        }else {
+            if(dire === 'left') {
+                _this.option.afterKeydownLeft();
+            }else if(dire === 'right') {
+                _this.option.afterKeydownRight();
+            }else if(dire === 'up') {
+                _this.option.afterKeydownUp();
+            }else if(dire === 'down') {
+                _this.option.afterKeydownDown();
+            }
+        }
     }
 
     /**
@@ -1462,10 +1526,6 @@
      * @param offsetY
      */
     function _moveItem(item, offsetX, offsetY, _this) {
-        if(!item || item.length === 0 || item.isEditing) {
-            return;
-        }
-
         offsetX = parseInt(offsetX);
         offsetY = parseInt(offsetY);
 
@@ -1522,6 +1582,7 @@
         }
         if(item.isType('rect') || item.isType('ellipse')) {
             var strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
+            if(strokeWidth < 0.3) strokeWidth = 2;
             item.set('strokeWidth', strokeWidth).setCoords();
         }else if(item.isType('group')) {
             item.forEachObject(function(obj, index, objs) {
@@ -2173,5 +2234,19 @@
             }).setCoords();
         }
         return true;
+    }
+
+    /**
+     * 
+     * @param {获取最小或最大值} val1 
+     * @param {*} val2 
+     * @param {*} isMin - true:最小，false:最大
+     */
+    function _getMinOrMaxBetween(val1, val2, isMin) {
+        if(isMin) {
+            return (val1 > val2) ? val2 : val1;
+        }else {
+            return (val1 > val2) ? val1 : val2;
+        }
     }
 })(window);

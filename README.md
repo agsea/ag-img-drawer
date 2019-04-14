@@ -1,3 +1,5 @@
+[![996.icu](https://img.shields.io/badge/link-996.icu-red.svg)](https://996.icu)
+
 ## AgImgDrawer
 
 基于简单而强大的Javascript Canvas库[fabric.js](http://fabricjs.com/)实现的矢量图形绘制插件

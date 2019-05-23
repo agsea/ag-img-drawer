@@ -212,9 +212,7 @@ import {MODE_CURSOR} from './mode-cursor';
                 _scaleImgToSize(bImg, drawer.backgroundImageSize);
             }
 
-            if(drawer.loadingMask) {
-                drawer.maskEle.style.display = 'none';
-            }
+            drawer.maskEle.style.display = 'none';
             drawer.loadingEle.style.display = 'none';
             calc instanceof Function && calc();
         });
@@ -243,7 +241,6 @@ import {MODE_CURSOR} from './mode-cursor';
         canvas.on('mouse:down', function (evt) {
             _hoverOnCanvas = true;
 
-            console.info(self.keyStatus);
             if (self.keyStatus.space || self.mode === DrawerMode.browse) {
                 self.cancelSelection();
                 this.isDragging = true;

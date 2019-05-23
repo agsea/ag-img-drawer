@@ -3,5 +3,6 @@
   "unused": false,
   "predef": ["window", "document", "jQuery", "$"],
   "white": false,
-  "sub": true
+  "sub": true,
+  "asi": true
 }

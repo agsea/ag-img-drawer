@@ -1,8 +1,12 @@
 {
   "name": "ag-imgdrawer",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件",
   "devDependencies": {
+    "@babel/core": "^7.4.4",
+    "@babel/preset-env": "^7.4.4",
+    "babelify": "^10.0.0",
+    "browserify": "^16.2.3",
     "format-date": "^1.0.0",
     "gulp": "^3.9.1",
     "gulp-clean": "^0.3.2",
@@ -10,18 +14,25 @@
     "gulp-cssmin": "^0.2.0",
     "gulp-inject-string": "^1.1.0",
     "gulp-jshint": "^2.0.4",
+    "gulp-load-plugins": "^1.5.0",
     "gulp-rename": "^1.2.2",
     "gulp-uglify": "^3.0.0",
     "jshint": "^2.9.5",
-    "jshint-stylish": "^2.2.1"
+    "jshint-stylish": "^2.2.1",
+    "vinyl-buffer": "^1.0.1",
+    "vinyl-source-stream": "^2.0.0"
   },
   "keywords": [
     "canvas",
     "draw",
-    "fabric"
+    "fabric",
+    "label",
+    "image"
   ],
   "author": "aegean",
   "license": "ISC",
   "createdTime": "2017/5/10",
-  "dependencies": {}
+  "dependencies": {
+    "natives": "^1.1.6"
+  }
 }

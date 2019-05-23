@@ -2,6 +2,7 @@
  * 基于fabric.js的Web绘图器
  * Created by aegean on 2017/5/19 0019.
  */
+
 import DrawerEvt from './drawer-event';
 import DrawerMode from './drawer-mode';
 import {MODE_CURSOR} from './mode-cursor';
@@ -73,9 +74,6 @@ import {MODE_CURSOR} from './mode-cursor';
 
     // 当前绘图器的引用
     let _curDrawer = null;
-
-    let relPanX = 0;
-    let relPanY = 0;
 
 
     //--------------------------------------------------------
@@ -197,7 +195,6 @@ import {MODE_CURSOR} from './mode-cursor';
 
     function _setCanvasBackImage(drawer, url, updateSize, inScale, calc) {
         if(drawer.loadingMask) {
-            drawer.maskEle.classList.add('dark');
             drawer.maskEle.style.display = 'block';
         }
         drawer.loadingEle.style.display = 'block';
@@ -215,8 +212,9 @@ import {MODE_CURSOR} from './mode-cursor';
                 _scaleImgToSize(bImg, drawer.backgroundImageSize);
             }
 
-            drawer.maskEle.classList.remove('dark');
-            drawer.maskEle.style.display = 'none';
+            if(drawer.loadingMask) {
+                drawer.maskEle.style.display = 'none';
+            }
             drawer.loadingEle.style.display = 'none';
             calc instanceof Function && calc();
         });
@@ -294,8 +292,6 @@ import {MODE_CURSOR} from './mode-cursor';
 
             if (this.isDragging) {
                 let e = evt.e;
-                relPanX += e.movementX;
-                relPanY += e.movementY;
                 let delta = new fabric.Point(e.movementX, e.movementY);
                 canvas.relativePan(delta);
                 this.requestRenderAll();

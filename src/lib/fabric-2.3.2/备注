@@ -3,3 +3,6 @@
 
 [源码修改]: 2018-07-29 13:43
     修改了“_scaleObject”及“_setObjectScale”方法，限制缩放只在图片范围内
+
+
+注：fabric-custom.min.js为修改fabric.js源码后压缩所得

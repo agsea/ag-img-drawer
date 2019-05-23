@@ -11,16 +11,17 @@ $().ready(function() {
     zTreeObj = initObjectTree('objTree');
 
     drawer = new AgImgDrawer('myDrawer', {
-        backgroundUrl: 'images/big_img1.jpg',
+        backgroundUrl: 'images/test3.jpg',
         autoAdjustment: true,
-        loadingMask: false,
+        // loadingMask: false,
         lockBoundary: true,
         // padding: 50,
         afterInitialize: function() {
             // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('draw');
+            drawer.setMode('browse');
             drawer.setEditDirectly(true);
             drawRects();
+            // drawTest();
             // drawer.setExistObjectSelectable(false);
             // drawer.setActiveObject(agRect);
         },
@@ -38,42 +39,42 @@ $().ready(function() {
             drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
-            console.info('修改', object, isSingle);
+            // console.info('修改', object, isSingle);
         },
         afterEnter(object, isSingle, isModified) {
-            console.info('回车', object, isSingle, isModified);
+            // console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
             // console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
-            console.info('删除', objects);
+            // console.info('删除', objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            console.info('选中', objects);
+            // console.info('选中', objects);
         },
         afterObjectDeSelect: function(object) {
-            console.info('单个物体取消选中', object);
+            // console.info('单个物体取消选中', object);
         },
         afterCopy: function(objects, source) {
-            console.info('复制', objects);
+            // console.info('复制', objects);
         },
         afterPaste: function(objects) {
-            console.info('粘贴', objects[0].agTestProp);
+            // console.info('粘贴', objects[0].agTestProp);
         },
         afterKeydownLeft: function() {
-            console.info('向左走');
+            // console.info('向左走');
         },
         afterKeydownRight: function() {
-            console.info('向右走');
+            // console.info('向右走');
         },
         afterKeydownEsc: function () {
-            console.info('esc');
+            // console.info('esc');
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -116,7 +117,7 @@ function zoomOut() {
     drawer.zoomOut();
 }
 function changeBackground() {
-    drawer.setBackgroundImageWithUpdateSize('images/img_1.jpg');
+    drawer.setBackgroundImage('images/img_1.jpg', null, false);
 }
 function changeBackground2() {
     drawer.setBackgroundImageWithUpdateSize('images/img_2.jpg');
@@ -237,9 +238,11 @@ function drawEclipse() {
 function drawLabel() {
     drawer.drawType = 'Text';
 }
+var groupIndex = 0;
 function deleteDraw() {
     //drawer.deleteSelection();
-    drawer.removeObject(groupObjectMap['groupObj1']);
+    console.info(groupIndex);
+    drawer.removeObject(groupObjectMap['groupObj' + (groupIndex++)]);
 }
 function cancleSele() {
     drawer.cancelSelection();
@@ -289,45 +292,45 @@ function serializeObjects() {
 var groupCounter = 0;
 var groupObjectMap = {};
 function drawRects() {
-    // for(var i = 0; i < 5; i++) {
-        var i = 0;
+    for(var i = 0; i < 4; i++) {
+        // var i = 0;
 
         groupCounter++;
         var agRect = drawer.createRect({
-            width: 5,
-            height: 8,
-            left: 200 * i,
-            top: 150 * i + 50,
+            width: randomFrom(10, 300),
+            height: 100,
+            left: 160 * i,
+            top: 120 * i + 50,
             // showLabel: true
         });
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
-        drawer.createOverlay({
-            ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
-            target: agRect,
-            position: 'top',
-            visible: 'auto'
-        });
-        drawer.createOverlay({
-            ele: createPopu('这是一个位于下面悬浮框-' + i),
-            target: agRect,
-            position: 'bottom',
-            visible: false
-        });
-        groupObjectMap['groupObj' + 1] = agRect;
+        // drawer.createOverlay({
+        //     ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
+        //     target: agRect,
+        //     position: 'top',
+        //     visible: 'auto'
+        // });
+        // drawer.createOverlay({
+        //     ele: createPopu('这是一个位于下面悬浮框-' + i),
+        //     target: agRect,
+        //     position: 'bottom',
+        //     visible: false
+        // });
+        groupObjectMap['groupObj' + i] = agRect;
 
-        var agRect2 = drawer.createRect({
-            width: 400,
-            height: 10,
-            left: 200,
-            top: 150 + 50,
-            // showLabel: true
-        });
-        agRect.set('agTestProp', 666);
-        drawer.addObject(agRect2);
-        groupObjectMap['groupObj' + 2] = agRect2;
+        // var agRect2 = drawer.createRect({
+        //     width: 400,
+        //     height: 10,
+        //     left: 200,
+        //     top: 150 + 50,
+        //     // showLabel: true
+        // });
+        // agRect.set('agTestProp', 666);
+        // drawer.addObject(agRect2);
+        // groupObjectMap['groupObj' + 2] = agRect2;
 
-    // }
+    }
     //console.info(groupObjectMap);
 }
 
@@ -371,9 +374,9 @@ function light() {
 function dark() {
     darkenGroupObject(groupObjectMap['groupObj1']);
 }
-var locateIndex = 1, locateIndexBefore;
+var locateIndex = 0, locateIndexBefore;
 function locate() {
-    locateIndex = locateIndex > 2 ? 1 : locateIndex;
+    locateIndex = locateIndex > 3 ? 0 : locateIndex;
 
     locateIndexBefore && darkenGroupObject(groupObjectMap['groupObj' + locateIndexBefore]);
     highlightGroupObject(groupObjectMap['groupObj' + locateIndex]);

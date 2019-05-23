@@ -1,6 +1,6 @@
 /*! AgImgDrawer v2.1.0 | (c) aegean | Created on 2017/5/10 */
 /*! 基于fabric.js [2.3.2]版本的Web端矢量图形绘制插件 */
-/*! Modified on 2019/02/15 11:48:02 */
+/*! Modified on 2019/04/23 17:53:18 */
 
 /**
  * 图片拖动模块（按住空格和鼠标左键拖动画布）
@@ -124,7 +124,7 @@
         afterModify: function(object, isSingle) {},         //修改回调，携带参数：所修改的对象、是否是单个对象
         afterEnter: function(object, isSingle, isModified) {},          //按回车键回调，携带参数：当前选中对象、是否是单个对象、是否修改
         beforeDelete: function(objects, ifCtrl) {},                //删除前回调，携带参数：将要删除的对象数组、ctrl键是否按下、方法返回false则取消删除
-        afterDelete: function(objects, ifCtrl) {},          //删除回调，携带参数：删除的对象数组、ctrl键是否按下
+        afterDelete: function(objects, ifCtrl) {},          //删除回调createOverlay，携带参数：删除的对象数组、ctrl键是否按下
         afterClear: function(objects) {},           //清空回调，携带一个参数为包含所有对象的数组
         afterSelect: function(objects) {},          //选中物体回调，携带一个参数为所选中的对象数组
         afterCancelSelect: function() {},           //选中集清空时的回调
@@ -870,6 +870,16 @@
     };
 
     /**
+     * 设置对象显隐
+     * @param object
+     */
+    global.AgImgDrawer.prototype.setObjectVisible = function(object, visible) {
+        object.set('visible', visible);
+        _setControlShow(object, visible);
+        this.refresh();
+    };
+
+    /**
      * 序列化对象为WKT字符串，序列化取左上角，右下角
      * @param object
      * @return {string}
@@ -1605,6 +1615,13 @@
         fabric.Object.prototype.setControlVisible('mr', false);
         fabric.Object.prototype.setControlVisible('mt', false);
         fabric.Object.prototype.setControlVisible('mtr', false);
+    }
+
+    function _setControlShow(object, visible) {
+        object.setControlVisible('tl', visible);
+        object.setControlVisible('tr', visible);
+        object.setControlVisible('br', visible);
+        object.setControlVisible('bl', visible);
     }
 
     function _handleDireKeyEvt(dire, item, offsetX, offsetY, _this) {

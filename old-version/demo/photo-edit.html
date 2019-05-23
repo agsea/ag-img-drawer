@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="assets/layer/skin/layer.css">
+    <link rel="stylesheet" href="assets/rcswitcher/rcswitcher.min.css">
+    <!--<link rel="stylesheet" href="../assets/zTree_v3/css/zTreeStyle/zTreeStyle.css">-->
+    <link rel="stylesheet" href="assets/zTree_v3/css/metroStyle/metroStyle.css">
+
+    <!-- <link rel="stylesheet" href="../dist/2.1.0/ag-imgdrawer-2.1.0.min.css"> -->
+    <link rel="stylesheet" href="../src/ag-img-drawer.css">
+
+    <link rel="stylesheet" href="photo-edit.css">
+    <link rel="stylesheet" href="ztree-custom/myStyle.css">
+</head>
+<body>
+    <div class="page">
+        <div class="aDrawer-wrapper drawer-main">
+            <div class="aDrawer" id="myDrawer"></div>
+            <div class="fold-icon fold" onclick="toggleSide(this)">
+                <div></div>
+            </div>
+        </div>
+        <div class="drawer-side active">
+            <div class="side-box">
+                <div class="side-box-head pos-relative">
+                    工具<div class="pos-absolute" id="tips" title="操作提示"></div>
+                </div>
+                <div class="side-box-main">
+                    <div>
+                        <div class="switcher-container">
+                            <label class="label-text">启用：</label>
+                            <div class="switcher-wrapper">
+                                <input type="checkbox" name="switcher-edit" data-ontext="ON" data-offtext="OFF"
+                                       data-target="btns-container" checked>
+                            </div>
+                        </div>
+
+                        <div id="btns-container" class="btns-container">
+                            <div class="btn-group">
+                                <label class="label-text">绘制类型：</label>
+                                <button class="side-btn" onclick="drawRect()">
+                                    <span class="icon-rect">矩形</span>
+                                </button>
+                                <button class="side-btn active" onclick="drawEclipse()">
+                                    <span class="icon-rect">椭圆</span>
+                                </button>
+                                <button class="side-btn" onclick="drawLabel()">
+                                    <span class="icon-label">标签</span>
+                                </button>
+                            </div>
+                            <div>
+                                <label class="label-text">操作类型：</label>
+                                <button class="side-btn" onclick="deleteDraw()">
+                                    <span class="icon-del">删除</span>
+                                </button>
+                                <button class="side-btn" onclick="cancleSele()">
+                                    <span class="icon-clear">取消选择项</span>
+                                </button>
+                                <button class="side-btn" onclick="clearDraw()">
+                                    <span class="icon-clear">清空</span>
+                                </button>
+                                <button class="side-btn" onclick="previewCanvas()">
+                                    <span class="icon-preview">预览</span>
+                                </button>
+                                <button class="side-btn" onclick="exportCanvas()">
+                                    <span class="icon-export">导出</span>
+                                </button>
+                            </div>
+                            <div class="margin-top10">
+                                <label class="label-text">绘图器模式: </label>
+                                <select name="" class="setting-item select" onchange="switchDrawMode(this.value)">
+                                    <option value="draw">绘制模式</option>
+                                    <option value="edit">编辑模式</option>
+                                    <option value="browse">浏览模式</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="side-box">
+                <div class="side-box-head">设置</div>
+                <div class="side-box-main">
+                    <div class="switcher-container">
+                        <label class="label-text">启用：</label>
+                        <div class="switcher-wrapper">
+                            <input type="checkbox" name="switcher-settings" data-ontext="ON" data-offtext="OFF"
+                                   data-target="settings-container">
+                        </div>
+                    </div>
+                    <div id="settings-container" class="settings-container hidden">
+                        <div class="settings-group margin-top-15">
+                            <div class="settings-label label-text">边框设置</div>
+                            <div class="settings-item">
+                                <label class="label-text">边框颜色: </label>
+                                <input type="color" class="setting-item color-box" value="#ffffff" data-target="borderColor">
+                            </div>
+                            <div class="settings-item font-oitem-marginL">
+                                <label class="label-text">边框粗细: </label>
+                                <input type="text" class="setting-item input" value="3" data-target="borderWidth">px
+                            </div>
+                            <div class="settings-item font-oitem-marginL">
+                                <label class="label-text">填充颜色: </label>
+                                <input type="color" class="setting-item color-box" value="#000000" data-target="fillColor">
+                            </div>
+                            <div class="settings-item">
+                                <label class="label-text">填充透明度: </label>
+                                <input type="range" class="setting-item range" value="2" min="0" max="10" data-target="fillOpacity">
+                            </div>
+                        </div>
+                        <div class="settings-group margin-top-15">
+                            <div class="settings-label label-text">字体设置</div>
+
+                            <div class="settings-item">
+                                <label class="label-text">字体颜色: </label>
+                                <input type="color" class="setting-item color-box" value="#ffffff" data-target="fontColor">
+                            </div>
+                            <div class="settings-item font-oitem-marginL">
+                                <label class="label-text">字号: </label>
+                                <input type="text" class="setting-item input" value="18" data-target="fontSize">
+                            </div>
+                            <div class="settings-item font-oitem-marginL">
+                                <label class="label-text">字体: </label>
+                                <select name="" id="" class="setting-item select" data-target="fontFamily">
+                                    <option value="Microsoft YaHei">微软雅黑</option>
+                                    <option value="华文细楷">华文细楷</option>
+                                    <option value="宋体">宋体</option>
+                                    <option value="幼圆">幼圆</option>
+                                    <option value="Times New Roman">Times New Roman</option>
+                                </select>
+                            </div>
+
+                            <div class="settings-item">
+                                <label class="label-text">描边颜色: </label>
+                                <input type="color" class="setting-item color-box" value="#ffffff" data-target="strokeColor">
+                            </div>
+                            <div class="settings-item font-oitem-marginL">
+                                <label class="label-text">描边粗细: </label>
+                                <input type="text" class="setting-item input" value="0" data-target="strokeWidth">px
+                            </div>
+                            <div>
+                                <div class="settings-item">
+                                    <label class="label-text">其他: </label>
+                                    <span class="setting-item font-oitem font-bold" data-on-value="bold" data-off-value="normal" data-target="fontWeight">B</span>
+                                    <span class="setting-item font-oitem font-italic" data-on-value="italic" data-off-value="normal" data-target="fontStyle">I</span>
+                                    <span class="setting-item font-oitem text-underline" data-on-value=true data-off-value=false data-target="underline">U</span>
+                                    <span class="setting-item font-oitem text-linethrough" data-on-value=true data-off-value=false data-target="linethrough">U</span>
+                                    <span class="setting-item font-oitem text-overline" data-on-value=true data-off-value=false data-target="overline">U</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="side-box">
+                <div class="side-box-head pos-relative">更多操作</div>
+                <div class="side-box-main">
+                    <div>
+                        <div class="switcher-container">
+                            <label class="label-text">启用：</label>
+                            <div class="switcher-wrapper">
+                                <input type="checkbox" name="switcher-operas" data-ontext="ON" data-offtext="OFF"
+                                       data-target="more-operas-container">
+                            </div>
+                        </div>
+
+                        <div id="more-operas-container" class="btns-container hidden">
+                            <label class="label-text">操作类型：</label>
+                            <button class="side-btn" onclick="zoomIn()">
+                                <span class="icon-export">放大</span>
+                            </button>
+                            <button class="side-btn" onclick="zoomOut()">
+                                <span class="icon-export">缩小</span>
+                            </button>
+                            <button class="side-btn" onclick="serializeObjects()">
+                                <span class="icon-export">序列化对象</span>
+                            </button>
+                            <button class="side-btn" onclick="changeBackground()">
+                                <span class="icon-export">更换背景</span>
+                            </button>
+                            <button class="side-btn" onclick="changeBackground2()">
+                                <span class="icon-export">更换背景2</span>
+                            </button>
+                            <button class="side-btn" onclick="light()">
+                                <span class="icon-export">高亮</span>
+                            </button>
+                            <button class="side-btn" onclick="dark()">
+                                <span class="icon-export">取消高亮</span>
+                            </button>
+                            <button class="side-btn" onclick="locate()">
+                                <span class="icon-export">定位</span>
+                            </button>
+                            <button class="side-btn" onclick="refresh()">
+                                <span class="icon-export">刷新</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 对象树 -->
+            <div class="side-box">
+                <div class="side-box-head pos-relative">对象树</div>
+                <div class="side-box-main" style="background-color: #F0F6E4">
+                    <div>
+                        <div>
+                            <label class="label-text">固定对象层级：</label>
+                            <input id="fixObjectLayer" type="checkbox" name="switcher-operas" data-ontext="ON" data-offtext="OFF">
+                        </div>
+                        <ul id="objTree" class="ztree"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 快捷键说明 -->
+    <div id="shortcutDescr" style="display: none; padding: 15px; color: #007d86; font-family: fantasy; font-size: 14px; line-height: 30px;">
+        1.选择物体：ctrl(按住) + 鼠标左键（编辑模式下可用） <br>
+        2.拖拽画布：T	 <br>
+        3.删除物体：Delete <br>
+        4.复制选中物体：ctrl + C <br>
+        5.粘贴选中物体：ctrl + V	<br>
+        6.以屏幕为中心放大：ctrl + alt + 加号 <br>
+        7.以屏幕为中心缩小：ctrl + alt + 减号 <br>
+    </div>
+    <!-- 导出预览 -->
+    <div class="preview hide" id="preview">
+        <div class="img-wrapper">
+            <img src="">
+        </div>
+        <div class="preview-close" title="退出预览"></div>
+    </div>
+
+    <!-- 悬浮框 -->
+    <div id="popup1" style="display: none; width: 100px; background-color: #007d86;">
+        啦啦啦啦啦啦啦
+    </div>
+
+
+    <script src="assets/jquery.js"></script>
+    <script src="assets/layer/layer.js"></script>
+    <script src="assets/rcswitcher/rcswitcher.min.js"></script>
+    <script type="text/javascript" src="assets/zTree_v3/js/jquery.ztree.core.js"></script>
+    <!--<script type="text/javascript" src="../assets/zTree_v3/js/jquery.ztree.excheck.js"></script>-->
+    <script type="text/javascript" src="assets/zTree_v3/js/jquery.ztree.exedit.js"></script>
+
+    <!-- <script src="../dist/2.1.0/ag-imgdrawer-2.1.0.min.js"></script> -->
+    <script src="../src/lib/fabric-2.3.2/fabric.js"></script>
+    <script src="../src/ag-img-dragger.js"></script>
+    <script src="../src/ag-img-larger.js"></script>
+    <script src="../src/ag-img-drawer.js"></script>
+
+    <script src="object-tree.js"></script>
+    <script src="photo-edit.js"></script>
+</body>
+</html>

@@ -11,7 +11,12 @@
 */
 
 import DrawerMode from './drawer-mode';
-import {MODE_CURSOR, getModeCursor} from './mode-cursor';
+import {MODE_CURSOR, getCanvasModeCursor} from './mode-cursor';
+import {
+    limitObjectMoveBoundary,
+    updateObjectOverlays,
+    setCanvasInteractive
+} from './drawer-utils';
 
 let curDrawer;
 let ctrlKey, spaceKey;
@@ -22,10 +27,71 @@ function setDrawer(drawer) {
 
 
 function _toggleDragMode(drawer, flag) {
+    setCanvasInteractive(drawer.canvas, drawer.mode);
     if(flag) {
         drawer.canvas.defaultCursor = MODE_CURSOR.grab;
     }else {
-        drawer.canvas.defaultCursor = getModeCursor(drawer.mode);
+        drawer.canvas.defaultCursor = getCanvasModeCursor(drawer.mode);
+    }
+}
+
+function _handleDireKeyEvt(dire, item, offsetX, offsetY, _this) {
+    if (item && item.length !== 0 && !item.isEditing) {
+        _moveItem(item, offsetX, offsetY, _this);
+    } else {
+        if (dire === 'left') {
+            _this.option.afterKeydownLeft();
+        } else if (dire === 'right') {
+            _this.option.afterKeydownRight();
+        } else if (dire === 'up') {
+            _this.option.afterKeydownUp();
+        } else if (dire === 'down') {
+            _this.option.afterKeydownDown();
+        }
+    }
+}
+
+/**
+ * 移动对象
+ * @private
+ * @param item
+ * @param offsetX
+ * @param offsetY
+ */
+function _moveItem(item, offsetX, offsetY, _this) {
+    offsetX = parseInt(offsetX);
+    offsetY = parseInt(offsetY);
+
+    item.set({
+        left: item.left + offsetX,
+        top: item.top + offsetY
+    }).setCoords();
+    item.modified = true;
+    item.lockScaleInDrawer = false;
+    let isSingle = item.type !== 'activeSelection' && item.type !== 'group';
+    _this.option.afterModify(item, isSingle);
+
+    objectModifiedHandler(item);
+    if(item.lockBoundary) {
+        limitObjectMoveBoundary(item, _this._originCoord, _this.backgroundImageSize);
+    }
+    updateObjectOverlays(item, _this.zoom);
+}
+
+function objectModifiedHandler(target) {
+    let type = target.type;
+    if (type === 'activeSelection' || type === 'group') {
+        target.forEachObject(function (obj, index, objs) {
+            objectModifiedHandler(obj);
+        });
+    } else {
+        let labelObj = target._labelObject;
+        if (labelObj) {
+            labelObj.set({
+                left: target.left,
+                top: target.top - labelObj.height,
+            }).setCoords();
+        }
     }
 }
 
@@ -108,8 +174,6 @@ function keydownHandler(evt) {
     } else if (keyCode === 27) {  //ESC键
         self.option.afterKeydownEsc();
     }
-
-    // console.info(curDrawer.keyStatus);
 }
 
 function keyupHandler(evt) {
@@ -127,4 +191,9 @@ function keyupHandler(evt) {
     }
 }
 
-export default {setDrawer, keydownHandler, keyupHandler};
+export default {
+    setDrawer,
+    objectModifiedHandler,
+    keydownHandler,
+    keyupHandler
+};

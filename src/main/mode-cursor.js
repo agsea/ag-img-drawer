@@ -6,10 +6,13 @@ export const MODE_CURSOR = {
     'default': 'default',
     'auto': 'auto',
     'grab': 'grab',
-    'draw': 'crosshair'
+    'grabbing': 'grabbing',
+    'draw': 'crosshair',
+    'hand': 'pointer',
+    'move': 'move'
 };
 
-export function getModeCursor(mode, spaceKey) {
+export function getCanvasModeCursor(mode, spaceKey) {
     if(spaceKey) {
         return MODE_CURSOR.grab;
     }else {

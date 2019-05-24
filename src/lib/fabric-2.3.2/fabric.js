@@ -9784,12 +9784,13 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
 
       // 限制缩放只在图片范围内
       if(target.lockBoundary) {
-          if(x < 0 || x > target.canvasWidth) {
+          var boundary = target.agBoundary;
+          if(x < boundary.minX || x > boundary.maxX) {
             lockScalingX = true;
           }else {
             lockScalingX = false;
           }
-          if(y < 0 || y > target.canvasHeight) {
+          if(y < boundary.minY || y > boundary.maxY) {
             lockScalingY = true;
           }else {
             lockScalingY = false;

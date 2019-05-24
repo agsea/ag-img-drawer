@@ -11,19 +11,16 @@ $().ready(function() {
     zTreeObj = initObjectTree('objTree');
 
     drawer = new AgImgDrawer('myDrawer', {
-        backgroundUrl: 'images/test3.jpg',
+        backgroundUrl: 'images/big_img2.jpeg',
         autoAdjustment: true,
         // loadingMask: false,
         lockBoundary: true,
         // padding: 50,
         afterInitialize: function() {
-            // console.info('初始化完成', drawer.originWidth, drawer.originHeight);
-            drawer.setMode('browse');
+            drawer.setMode('draw');
             drawer.setEditDirectly(true);
             drawRects();
             // drawTest();
-            // drawer.setExistObjectSelectable(false);
-            // drawer.setActiveObject(agRect);
         },
         afterAdd: function(object) {
             // console.info('添加', object);
@@ -32,14 +29,14 @@ $().ready(function() {
         afterDraw: function(object) {
             // console.info('绘制', object);
             // 仅保留一个矩形框
-            if(newDrawRect) {
-                drawer.removeObject(newDrawRect);
-            }
+            // if(newDrawRect) {
+            //     drawer.removeObject(newDrawRect);
+            // }
             newDrawRect = object;
             drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
-            // console.info('修改', object, isSingle);
+            console.info('修改', object, isSingle);
         },
         afterEnter(object, isSingle, isModified) {
             // console.info('回车', object, isSingle, isModified);
@@ -293,11 +290,9 @@ var groupCounter = 0;
 var groupObjectMap = {};
 function drawRects() {
     for(var i = 0; i < 4; i++) {
-        // var i = 0;
-
         groupCounter++;
         var agRect = drawer.createRect({
-            width: randomFrom(10, 300),
+            width: 150, //randomFrom(10, 300),
             height: 100,
             left: 160 * i,
             top: 120 * i + 50,
@@ -305,18 +300,18 @@ function drawRects() {
         });
         agRect.set('agTestProp', 666);
         drawer.addObject(agRect);
-        // drawer.createOverlay({
-        //     ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
-        //     target: agRect,
-        //     position: 'top',
-        //     visible: 'auto'
-        // });
-        // drawer.createOverlay({
-        //     ele: createPopu('这是一个位于下面悬浮框-' + i),
-        //     target: agRect,
-        //     position: 'bottom',
-        //     visible: false
-        // });
+        drawer.createOverlay({
+            ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
+            target: agRect,
+            position: 'top',
+            visible: 'auto'
+        });
+        drawer.createOverlay({
+            ele: createPopu('这是一个位于下面悬浮框-' + i),
+            target: agRect,
+            position: 'bottom',
+            visible: false
+        });
         groupObjectMap['groupObj' + i] = agRect;
 
         // var agRect2 = drawer.createRect({
@@ -331,7 +326,6 @@ function drawRects() {
         // groupObjectMap['groupObj' + 2] = agRect2;
 
     }
-    //console.info(groupObjectMap);
 }
 
 /**
@@ -378,8 +372,6 @@ var locateIndex = 0, locateIndexBefore;
 function locate() {
     locateIndex = locateIndex > 3 ? 0 : locateIndex;
 
-    locateIndexBefore && darkenGroupObject(groupObjectMap['groupObj' + locateIndexBefore]);
-    highlightGroupObject(groupObjectMap['groupObj' + locateIndex]);
     drawer.locate(groupObjectMap['groupObj' + locateIndex]);
 
     locateIndexBefore = locateIndex;

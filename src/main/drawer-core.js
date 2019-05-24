@@ -6,8 +6,20 @@
 import DrawerEvt from './drawer-event';
 import DrawerMode from './drawer-mode';
 import {MODE_CURSOR} from './mode-cursor';
+import {
+    getDrawBoundary,
+    limitDrawBoundary,
+    limitObjectMoveBoundary,
+    checkIfWithinBackImg,
+    updateObjectOverlays,
+    setOverlayPosition,
+    setCanvasInteractive,
+    getShape,
+    mergeObject,
+    setObjectMoveLock
+} from './drawer-utils';
 
-;(function (global) {
+(function (global) {
     // 默认配置项
     let defaultOption = {
         width: 600,     //若要指定绘图器图片宽高，请将 backgroundInScale 设为false
@@ -17,7 +29,7 @@ import {MODE_CURSOR} from './mode-cursor';
         backgroundUrl: null,    //背景图片地址
         backgroundInScale: true,   // 保持宽高比例
         loadingMask: false,  //加载动画遮罩
-        lockBoundary: true, //锁定操作边界在图片范围内
+        lockBoundary: false, //锁定操作边界在图片范围内
         zoomWidthInLocate: 350, // 定位对象时对象缩放的最大尺寸
         afterInitialize: function () {
         },
@@ -86,7 +98,7 @@ import {MODE_CURSOR} from './mode-cursor';
      * @constructor
      */
     global.AgImgDrawer = function (containerId, option) {
-        option = _mergeObject(defaultOption, option);
+        option = mergeObject(defaultOption, option);
 
         if (!containerId) {
             console.error('Initialize has failed,  the field "containerId" must has value.');
@@ -106,7 +118,7 @@ import {MODE_CURSOR} from './mode-cursor';
         this.originHeight = null;
         this.drawable = false;  //是否是可绘制状态
         this.dragDirectly = true;  //是否可以使用鼠标左键直接拖拽
-        this.selectable = true; //是否允许选择对象
+        // this.selectable = true; //是否允许选择对象
         this.selectedItems = null;
         this.editDirectly = false;  //仅在编辑模式有效：是否可以直接对画布上的对象编辑，如果为false则需摁住ctrl键操作对象
         this.backgroundUrl = null;
@@ -114,20 +126,20 @@ import {MODE_CURSOR} from './mode-cursor';
         this.backgroundImageSize = [0, 0];
         this.zoom = 1;
         this.loadingMask = false;
-        this.drawStyle = {  //绘制样式
-            fillColor: '#000',
-            fillOpacity: 0.2,
-            _fill: 'rgba(0, 0, 0, 0)',     //根据fillColor和fillOpacity生成
+        this.drawStyle = {  // 绘制样式
             borderColor: '#f04155',
-            borderColorH: '#ffc64b',
-            borderWidth: 2,
+            borderColorActive: '#ffc64b',
+            borderWidth: 1.5,
             _borderWidth: 2,
+            backColor: 'rgba(0, 0, 0, 0)',   // 'rgba(0, 0, 0, 0.24)'
+            backColorHover: 'rgba(200, 165, 89, 0.4)',
+            backColorActive: 'rgba(200, 165, 89, 0.6)',
             fontFamily: 'Microsoft YaHei',
             fontSize: 14,
             fontColor: '#fff',
-            fontColorH: '#333',
+            fontColorActive: '#333',
             fontBackColor: 'rgba(240, 65, 85, 0.7)',
-            fontBackColorH: 'rgba(255, 198, 75, 0.7)',
+            fontBackColorActive: 'rgba(255, 198, 75, 0.7)',
             fontWeight: 'normal',
             fontStyle: 'normal',
             underline: false,
@@ -136,7 +148,7 @@ import {MODE_CURSOR} from './mode-cursor';
             strokeColor: '#fff',
             strokeWidth: 0
         };
-        this._drawIndexCounter = 0;
+        this._drawIndex = 0;
         this._originCoord = [0, 0]; // 定位坐标原点，取初始化后图片左上角点
         this.keyStatus = {
             ctrl: false,
@@ -188,11 +200,20 @@ import {MODE_CURSOR} from './mode-cursor';
         self.backgroundImage = backImg;
 
         _setCanvasBackImage(self, option.backgroundUrl, true, option.backgroundInScale, () => {
-            self._drawIndexCounter = 10;
+            self._drawIndex = 10;
             _initDrawer(self, option);
         });
-    };
+    }
 
+    /**
+     * 设置画布背景图片
+     * @param drawer
+     * @param url
+     * @param updateSize
+     * @param inScale
+     * @param calc
+     * @private
+     */
     function _setCanvasBackImage(drawer, url, updateSize, inScale, calc) {
         if(drawer.loadingMask) {
             drawer.maskEle.style.display = 'block';
@@ -242,46 +263,24 @@ import {MODE_CURSOR} from './mode-cursor';
             _hoverOnCanvas = true;
 
             if (self.keyStatus.space || self.mode === DrawerMode.browse) {
-                self.cancelSelection();
+                setObjectMoveLock(self.getObjects(), true);
                 this.isDragging = true;
                 this.selection = false;
             }else {
-                hit = true;
-                self.drawingItem = null;
-                self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
-                console.info(self.drawStyle);
+                let ifCanDraw;
+                if(self.option.lockBoundary) {
+                    ifCanDraw = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize);
 
-                startX = evt.absolutePointer.x;
-                startY = evt.absolutePointer.y;
-            }
-        });
-        window.addEventListener('mouseup', function (evt) {
-            hit = false;
-            if (self.drawingItem) {
-                if (self.drawingItem.width < 3 && self.drawingItem.height < 3) {
-                    canvas.remove(self.drawingItem);
-                } else {
-                    if (self.drawType === DRAWER_TYPE.text) {
-                        let labelStr = prompt('添加标签', '');
-                        if (labelStr && labelStr !== '') {
-                            self.drawingItem.set('text', labelStr);
-                        } else {
-                            canvas.remove(self.drawingItem);
-                        }
-                    }
-
-                    if (!self.selectable) {
-                        self.drawingItem.selectable = false;
-                        self.drawingItem.hoverCursor = 'crosshair';
-                        self.drawingItem.moveCursor = 'crosshair';
-                    }
-
-                    _setForNewObject(self.drawingItem, self);
-                    option.afterAdd(self.drawingItem);
-                    option.afterDraw(self.drawingItem);
+                }else {
+                    ifCanDraw = true;
                 }
-
-                self.drawingItem = null;
+                if(ifCanDraw) {
+                    hit = true;
+                    self.drawingItem = null;
+                    self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
+                    startX = evt.absolutePointer.x;
+                    startY = evt.absolutePointer.y;
+                }
             }
         });
         canvas.on('mouse:move', function (evt) {
@@ -291,7 +290,14 @@ import {MODE_CURSOR} from './mode-cursor';
                 let e = evt.e;
                 let delta = new fabric.Point(e.movementX, e.movementY);
                 canvas.relativePan(delta);
+
+                let objects = self.getObjects();
+                objects.forEach((item) => {
+                    updateObjectOverlays(item);
+                });
                 this.requestRenderAll();
+            }else {
+                self._pointerObjects = _getPointerObjects(self.canvas, self.getObjects(), evt);
             }
 
             if (_hoverOnCanvas) {
@@ -305,8 +311,8 @@ import {MODE_CURSOR} from './mode-cursor';
 
                 // 修正至图片范围内
                 if (self.option.lockBoundary) {
-                    endX = _limitDrawBoundary(endX, self._originCoord[0], self.backgroundImageSize[0]);
-                    endY = _limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
+                    endX = limitDrawBoundary(endX, self._originCoord[0], self.backgroundImageSize[0]);
+                    endY = limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
                 }
 
                 if (self.drawingItem) {
@@ -328,7 +334,7 @@ import {MODE_CURSOR} from './mode-cursor';
                         height: tempHeight,
                         left: tempLeft,
                         top: tempTop,
-                        fill: self.drawStyle._fill,
+                        fill: self.drawStyle.backColor,
                         stroke: self.drawStyle.borderColor,
                         strokeWidth: self.drawStyle._borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
@@ -344,7 +350,7 @@ import {MODE_CURSOR} from './mode-cursor';
                         ry: tempHeight,
                         left: tempLeft,
                         top: tempTop,
-                        fill: self.drawStyle._fill,
+                        fill: self.drawStyle.backColor,
                         stroke: self.drawStyle.borderColor,
                         strokeWidth: self.drawStyle._borderWidth,
                         originStrokeWidth: self.drawStyle.borderWidth
@@ -378,27 +384,72 @@ import {MODE_CURSOR} from './mode-cursor';
         canvas.on('mouse:up', function(evt) {
             this.isDragging = false;
             this.selection = true;
+            setObjectMoveLock(self.getObjects(), false);
+
+            hit = false;
+            if (self.drawingItem) {
+                if (self.drawingItem.width < 3 && self.drawingItem.height < 3) {
+                    canvas.remove(self.drawingItem);
+                } else {
+                    if (self.drawType === DRAWER_TYPE.text) {
+                        let labelStr = prompt('添加标签', '');
+                        if (labelStr && labelStr !== '') {
+                            self.drawingItem.set('text', labelStr);
+                        } else {
+                            canvas.remove(self.drawingItem);
+                        }
+                    }
+
+                    _setForNewObject(self.drawingItem, self);
+                    option.afterAdd(self.drawingItem);
+                    option.afterDraw(self.drawingItem);
+                }
+
+                self.drawingItem = null;
+            }
         });
         canvas.on('mouse:over', function (evt) {
             _hoverOnCanvas = true;
         });
         canvas.on('mouse:out', function (evt) {
+            this.isDragging = false;
             _hoverOnCanvas = false;
             _mousePosition.move.x = 0;
             _mousePosition.move.y = 0;
         });
         // 缩放
-        canvas.on('mouse:wheel', function (opt) {
-            opt.e.preventDefault();
-            opt.e.stopPropagation();
+        canvas.on('mouse:wheel', function (evt) {
+            evt.e.preventDefault();
+            evt.e.stopPropagation();
 
-            let delta = opt.e.deltaY;
-            let zoom = self.zoom;
-            zoom = zoom - delta / 200;
-            if (zoom > 30) zoom = 30;
-            if (zoom < 0.1) zoom = 0.1;
-            self.setZoom(zoom, {x: opt.e.offsetX, y: opt.e.offsetY});
-            self.refresh();
+            let delta = evt.e.deltaY;
+
+            // 绘制和编辑模式下按住ctrl可以对叠加对象切换选择
+            if(self.keyStatus.ctrl && self.mode !== DrawerMode.browse) {
+                let pObjs = self._pointerObjects;
+                if(!self._pointerObjIndex) {
+                    self._pointerObjIndex = 0;
+                }
+                if(self._pointerObjIndex < 0) {
+                    self._pointerObjIndex = pObjs.length - 1;
+                }else if(self._pointerObjIndex > pObjs.length - 1) {
+                    self._pointerObjIndex = 0;
+                }
+                self.setActiveObject(pObjs[self._pointerObjIndex]);
+                self.refresh();
+                if(delta > 0) {
+                    self._pointerObjIndex++;
+                }else {
+                    self._pointerObjIndex--;
+                }
+            }else {
+                let zoom = self.zoom;
+                zoom = zoom - delta / 200;
+                if (zoom > 30) zoom = 30;
+                if (zoom < 0.1) zoom = 0.1;
+                self.setZoom(zoom, {x: evt.e.offsetX, y: evt.e.offsetY});
+                self.refresh();
+            }
         });
 
         //对象事件
@@ -413,20 +464,21 @@ import {MODE_CURSOR} from './mode-cursor';
             let isSingle = target.type !== 'activeSelection' && target.type !== 'group';
             target.modified = true;
             option.afterModify(target, isSingle);
-            _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
-            _handleAgRectModify(target);
+            DrawerEvt.objectModifiedHandler(target);
             target.lockScaleInDrawer = false;
         });
         canvas.on('object:moving', function (evt) {
             let target = evt.target;
-            _handleAgRectModify(target);
-            _lockObjectMoveInDrawer(target, self.originWidth, self.originHeight, self.drawStyle);
-            _updateObjectOverlays(target, self.zoom);
+            DrawerEvt.objectModifiedHandler(target);
+            if(target.lockBoundary) {
+                limitObjectMoveBoundary(target, self._originCoord, self.backgroundImageSize);
+            }
+            updateObjectOverlays(target);
         });
         canvas.on('object:scaling', function (evt) {
             let target = evt.target;
-            _handleAgRectModify(target);
-            _updateObjectOverlays(target, self.zoom);
+            DrawerEvt.objectModifiedHandler(target);
+            updateObjectOverlays(target);
         });
 
         //选择集事件
@@ -472,19 +524,6 @@ import {MODE_CURSOR} from './mode-cursor';
         setTimeout(function () {
             option.afterInitialize();
         }, 100);
-    };
-
-    /**
-     * 限制绘制边界在图片范围内
-     * @private
-     */
-    function _limitDrawBoundary(xy, coordXy, wh) {
-        if (xy < coordXy) {
-            xy = coordXy;
-        } else if (xy > coordXy + wh) {
-            xy = coordXy + wh;
-        }
-        return xy;
     }
 
     /**
@@ -498,6 +537,7 @@ import {MODE_CURSOR} from './mode-cursor';
         }
         this.mode = mode;
         this.cancelSelection();
+        setCanvasInteractive(this.canvas, mode);
 
         if (mode === DrawerMode.browse) {
             this.canvas.defaultCursor = MODE_CURSOR.grab;
@@ -615,12 +655,12 @@ import {MODE_CURSOR} from './mode-cursor';
 
         let objects = [object];
         if (ifExecCallback) {
-            if (this.option.beforeDelete(objects, self.keyStatus.ctrl) === false) return;
+            if (this.option.beforeDelete(objects, this.keyStatus.ctrl) === false) return;
         }
 
         if (object instanceof fabric.Object && this.canvas.contains(object)) {
             if (object.selected === true) this.canvas.discardActiveObject();
-            this.option.afterDelete(objects, self.keyStatus.ctrl);
+            this.option.afterDelete(objects, this.keyStatus.ctrl);
             this.canvas.fxRemove(object);
         }
     };
@@ -633,7 +673,7 @@ import {MODE_CURSOR} from './mode-cursor';
     global.AgImgDrawer.prototype.removeObjects = function (objects, ifExecCallback) {
         ifExecCallback = ifExecCallback === false ? false : true;
         if (ifExecCallback) {
-            if (this.option.beforeDelete(objects, self.keyStatus.ctrl) === false) return;
+            if (this.option.beforeDelete(objects, this.keyStatus.ctrl) === false) return;
         }
 
         let success = [], tmp;
@@ -643,7 +683,7 @@ import {MODE_CURSOR} from './mode-cursor';
             this.canvas.remove(tmp);
             success.push(tmp);
         }
-        this.option.afterDelete(success, self.keyStatus.ctrl);
+        this.option.afterDelete(success, this.keyStatus.ctrl);
         this.refresh();
     };
 
@@ -654,7 +694,8 @@ import {MODE_CURSOR} from './mode-cursor';
      */
     global.AgImgDrawer.prototype.getObjects = function (exclude) {
         let result = [];
-        exclude = _mergeObject({
+        exclude = mergeObject({
+            'ag-bgImg': true,
             'ag-label': true
         }, exclude);
         this.canvas.forEachObject(function (obj, index, objs) {
@@ -672,7 +713,7 @@ import {MODE_CURSOR} from './mode-cursor';
      */
     global.AgImgDrawer.prototype.getSelection = function (exclude) {
         let result = [], tmp;
-        exclude = _mergeObject({
+        exclude = mergeObject({
             'ag-label': true
         }, exclude);
         let activeObjs = this.canvas.getActiveObjects();
@@ -721,24 +762,18 @@ import {MODE_CURSOR} from './mode-cursor';
     };
 
     /**
-     * 序列化对象为WKT字符串，序列化取左上角，右下角
+     * 序列化对象
      * @param object
-     * @return {string}
+     * @returns {string}
      */
     global.AgImgDrawer.prototype.serializeObject = function (object) {
-        let w, h, l, t, ltPoint, rbPoint;
-        w = object.width;
-        h = object.height;
-        l = object.left;
-        t = object.top;
-        ltPoint = [l, t];
-        rbPoint = [l + w, t + h];
-        return 'BOX(' + ltPoint.join(' ') + ',' + rbPoint.join(' ') + ')';
+        return getShape(object, this._originCoord, 1, 1);
     };
 
     /**
      * 序列化多个对象
-     * @return {Array[string]}
+     * @param objects
+     * @returns {Array}
      */
     global.AgImgDrawer.prototype.serializeObjects = function (objects) {
         let wkts = [];
@@ -751,12 +786,23 @@ import {MODE_CURSOR} from './mode-cursor';
     };
 
     /**
+     * 序列化画布上的所有对象（不包括过滤的对象）
+     * @returns {*}
+     */
+    global.AgImgDrawer.prototype.serializeAllObject = function() {
+        let objs = this.getObjects();
+        return this.serializeObjects(objs);
+    };
+
+    /**
      * 清空绘图板
      */
     global.AgImgDrawer.prototype.clear = function () {
-        this.option.afterClear(this.canvas.getObjects());
-        this.canvas.clear();
-        // this.setBackgroundImage(this.backgroundImage);
+        let objs = this.getObjects();
+        objs.forEach((item) => {
+            this.removeObject(item);
+        });
+        this.option.afterClear(objs);
     };
 
     /**
@@ -786,6 +832,9 @@ import {MODE_CURSOR} from './mode-cursor';
         let zoom = Math.min(this.option.zoomWidthInLocate / w, this.option.zoomWidthInLocate / h);
         let zoomP = new fabric.Point(this.originWidth / 2, this.originHeight / 2);
         this.setZoom(zoom, zoomP);
+        if(this.mode !== DrawerMode.browse) {
+            this.setActiveObject(object);
+        }
         this.refresh();
     };
 
@@ -830,7 +879,12 @@ import {MODE_CURSOR} from './mode-cursor';
         }else {
             this.canvas.setZoom(zoom);
         }
-        _updateAllObjectSW(this, zoom);
+
+        let objs = this.getObjects();
+        objs.forEach((item) => {
+            _setStrokeWidthByScale(item, zoom);
+            updateObjectOverlays(item);
+        });
         this.refresh();
     };
 
@@ -878,7 +932,7 @@ import {MODE_CURSOR} from './mode-cursor';
             format: 'jpeg',
             quality: 0.8
         };
-        option = _mergeObject(defaultOpt, option);
+        option = mergeObject(defaultOpt, option);
 
         let dataURL;
         try {
@@ -895,19 +949,20 @@ import {MODE_CURSOR} from './mode-cursor';
 
     /**
      * 根据传入的参数对象自定义绘制样式
-     * 书写形式：drawer.setDrawStyle({'fillColor': '#000'});
+     * 书写形式：drawer.setDrawStyle({'backColor': '#000'});
      * @param opts {object}
      */
     global.AgImgDrawer.prototype.setDrawStyle = function (opts) {
         for (let key in opts) {
-            this.drawStyle[key] = opts[key];
-
-            if (key === 'fillColor') {
-                let fOpac = opts['fillOpacity'] ? opts['fillOpacity'] : this.drawStyle.fillOpacity;
-                this.drawStyle._fill = _getRGBAColor(opts[key], fOpac);
-            } else if (key === 'fillOpacity') {
-                let fColor = opts['fillColor'] ? opts['fillColor'] : this.drawStyle.fillColor;
-                this.drawStyle._fill = _getRGBAColor(fColor, opts[key]);
+            // 兼容旧属性
+            if(key === 'borderColorH') {
+                this.drawStyle.borderColorActive = opts.borderColorH;
+            }else if(key === 'fontColorH') {
+                this.drawStyle.fontColorActive = opts.fontColorH;
+            }else if(key === 'fontBackColorH') {
+                this.drawStyle.fontBackColorActive = opts.fontBackColorH;
+            }else {
+                this.drawStyle[key] = opts[key];
             }
         }
     };
@@ -987,12 +1042,12 @@ import {MODE_CURSOR} from './mode-cursor';
      * @returns {*}
      */
     global.AgImgDrawer.prototype.createRect = function (option) {
-        option = _mergeObject({
+        option = mergeObject({
             width: 100,
             height: 100,
             left: 0,
             top: 0,
-            fill: this.drawStyle._fill,
+            fill: this.drawStyle.backColor,
             stroke: this.drawStyle.borderColor,
             strokeWidth: this.drawStyle.borderWidth,
             originStrokeWidth: this.drawStyle.borderWidth
@@ -1067,8 +1122,7 @@ import {MODE_CURSOR} from './mode-cursor';
             default:
                 showMode = 'auto';
         }
-        label.hoverCursor = 'auto';
-        label.moveCursor = 'auto';
+        label.hoverCursor = label.moveCursor = MODE_CURSOR.auto;
         label.targetObject = rect;
         label.showMode = showMode;
         label.set('visible', showMode !== 'auto' ? showMode : false);
@@ -1103,7 +1157,7 @@ import {MODE_CURSOR} from './mode-cursor';
         let self = this;
         let container = document.getElementById(self.containerId);
         container.appendChild(option.ele);
-        _setOverlayPosition(option.ele, self.zoom, option);
+        setOverlayPosition(option.target, option.ele);
         option.target._overlays.push(option.ele);
     };
 
@@ -1130,9 +1184,10 @@ import {MODE_CURSOR} from './mode-cursor';
                     });
                 } else {
                     object.set({
-                        stroke: self.drawStyle.borderColorH
+                        stroke: self.drawStyle.borderColorActive,
+                        backgroundColor: self.drawStyle.backColorActive
                     });
-                    object.moveTo(self._drawIndexCounter + 1);
+                    object.moveTo(self._drawIndex + 1);
                     let labelObj = object._labelObject;
                     if (labelObj) {
                         // 将标签对象加入选择集使其可以被一起拖动
@@ -1146,12 +1201,12 @@ import {MODE_CURSOR} from './mode-cursor';
                             top: object.top - labelObj.height,
                         }).setCoords();
                         labelObj.item(0).set({
-                            fill: this.drawStyle.fontBackColorH
+                            fill: this.drawStyle.fontBackColorActive
                         });
                         labelObj.item(1).set({
-                            fill: this.drawStyle.fontColorH
+                            fill: this.drawStyle.fontColorActive
                         });
-                        labelObj.moveTo(self._drawIndexCounter + 1);
+                        labelObj.moveTo(self._drawIndex + 1);
                     }
                 }
             }
@@ -1176,7 +1231,8 @@ import {MODE_CURSOR} from './mode-cursor';
                     });
                 } else {
                     object.set({
-                        stroke: self.drawStyle.borderColor
+                        stroke: self.drawStyle.borderColor,
+                        backgroundColor: self.drawStyle.backColor
                     });
                     object.moveTo(object.drawIndex);
                     let labelObj = object._labelObject;
@@ -1244,33 +1300,10 @@ import {MODE_CURSOR} from './mode-cursor';
         _setObjectOverlaysShow(target, ifShow);
     };
 
-    global.AgImgDrawer.prototype.disableAnimation = function () {
-        let self = this;
-        let container = document.getElementById(self.containerId);
-        container.classList.remove('ag-smooth');
-        this.canvas.getElement().classList.remove('ag-smooth');
-    };
-
-    global.AgImgDrawer.prototype.enableAnimation = function () {
-        let self = this;
-        let container = document.getElementById(self.containerId);
-        container.classList.add('ag-smooth');
-        this.canvas.getElement().classList.add('ag-smooth');
-    };
 
     //--------------------------------------------------------
     // 内部方法
     //--------------------------------------------------------
-    /**
-     * 创建canvas元素
-     * @private
-     */
-    function _createImgEle() {
-        let ele = document.createElement('img');
-        ele.className = 'aDrawer-img';
-        return ele;
-    }
-
     /**
      * 创建canvas元素
      * @private
@@ -1322,11 +1355,10 @@ import {MODE_CURSOR} from './mode-cursor';
      */
     function _setGlobalControlStyle() {
         fabric.Object.prototype.transparentCorners = false;
-        fabric.Object.prototype.cornerSize = 6;
+        fabric.Object.prototype.cornerSize = 7;
         fabric.Object.prototype.cornerStyle = 'circle';
-        fabric.Object.prototype.cornerColor = '#fff';
-        fabric.Object.prototype.cornerStrokeColor = '#888';
-        // fabric.Object.prototype.borderColor = '#00CCFF';
+        fabric.Object.prototype.cornerColor = '#51ef75';
+        fabric.Object.prototype.cornerStrokeColor = '#f5f5f5';
         fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
@@ -1341,47 +1373,6 @@ import {MODE_CURSOR} from './mode-cursor';
         object.setControlVisible('tr', visible);
         object.setControlVisible('br', visible);
         object.setControlVisible('bl', visible);
-    }
-
-    function _handleDireKeyEvt(dire, item, offsetX, offsetY, _this) {
-        if (item && item.length !== 0 && !item.isEditing) {
-            _moveItem(item, offsetX, offsetY, _this);
-        } else {
-            if (dire === 'left') {
-                _this.option.afterKeydownLeft();
-            } else if (dire === 'right') {
-                _this.option.afterKeydownRight();
-            } else if (dire === 'up') {
-                _this.option.afterKeydownUp();
-            } else if (dire === 'down') {
-                _this.option.afterKeydownDown();
-            }
-        }
-    }
-
-    /**
-     * 移动对象
-     * @private
-     * @param item
-     * @param offsetX
-     * @param offsetY
-     */
-    function _moveItem(item, offsetX, offsetY, _this) {
-        offsetX = parseInt(offsetX);
-        offsetY = parseInt(offsetY);
-
-        item.set({
-            left: item.left + offsetX,
-            top: item.top + offsetY
-        }).setCoords();
-        item.modified = true;
-        item.lockScaleInDrawer = false;
-        let isSingle = item.type !== 'activeSelection' && item.type !== 'group';
-        _this.option.afterModify(item, isSingle);
-
-        _handleAgRectModify(item);
-        _lockObjectMoveInDrawer(item, _this.originWidth, _this.originHeight, _this.drawStyle);
-        _updateObjectOverlays(item, _this.zoom);
     }
 
     /**
@@ -1403,12 +1394,6 @@ import {MODE_CURSOR} from './mode-cursor';
             object.originFontSize = opts.fontSize;
             object.drawIndex = opts.drawIndex;
         }
-    }
-
-    function _updateAllObjectSW(_this, zoom) {
-        _this.canvas.forEachObject(function (obj, index, objs) {
-            _setStrokeWidthByScale(obj, zoom);
-        });
     }
 
     /**
@@ -1440,8 +1425,8 @@ import {MODE_CURSOR} from './mode-cursor';
      */
     function _calcSWByScale(originSW, scale) {
         let newSW = originSW / scale;
-        if(newSW > 10) {
-            newSW = 10;
+        if(newSW > 8) {
+            newSW = 8;
         }else if(newSW < 0.3) {
             newSW = 0.3;
         }
@@ -1464,11 +1449,13 @@ import {MODE_CURSOR} from './mode-cursor';
 
     /**
      * 根据画布宽高计算背景图片大小
+     * @param oImg
+     * @param canWidth
+     * @param canHeight
+     * @param padding
+     * @param inScale
+     * @returns {number[]}
      * @private
-     * @param conWidth
-     * @param conHeight
-     * @param imgWidth
-     * @param imgHeight
      */
     function _calcCanvasBackImageSize(oImg, canWidth, canHeight, padding, inScale) {
         padding = isNaN(padding) ? 0 : padding;
@@ -1496,153 +1483,19 @@ import {MODE_CURSOR} from './mode-cursor';
         oImg.scaleY = tarSize[1] / oImg.height;
     }
 
+    /**
+     * 计算对象添加到画布上的坐标原点
+     * @param canW
+     * @param canH
+     * @param imgW
+     * @param imgH
+     * @returns {number[]}
+     * @private
+     */
     function _calcOringinCoordinate(canW, canH, imgW, imgH) {
         let originX = (canW - imgW) / 2;
         let originY = (canH - imgH) / 2;
         return [originX, originY];
-    }
-
-    /**
-     * 居中元素
-     * @param ele
-     * @param width
-     * @param height
-     * @private
-     */
-    function _centerElement(ele, width, height) {
-        let conParent = ele.parentNode;
-        let conPWidth = parseFloat(conParent.clientWidth);
-        let conPHeight = parseFloat(conParent.clientHeight);
-        let left = (conPWidth - width) / 2 + 'px';
-        let top = (conPHeight - height) / 2 + 'px';
-        ele.style.marginLeft = left;
-        ele.style.marginTop = top;
-    }
-
-    /**
-     * 计算对象缩放后的实际尺寸
-     * @param target
-     * @param scaleX
-     * @param scaleY
-     * @param isOutest - 是否是最外层对象
-     * @private
-     */
-    function _calcObjSizeAfterScale(target, scaleX, scaleY, isOutest) {
-        let newProps;
-        let type = target.type;
-        if (target.agType === 'ag-label') {// 自定义的标签类型不做缩放
-            newProps = {
-                width: target.width,
-                height: target.height,
-                scaleX: 1,
-                scaleY: 1
-            };
-        } else if (type === 'activeSelection' || type === 'group') {// 选择集、组
-            newProps = {
-                width: target.width * scaleX,
-                height: target.height * scaleY,
-                scaleX: 1,
-                scaleY: 1
-            };
-            if (!isOutest) {
-                newProps.left = target.left * scaleX;
-                newProps.top = target.top * scaleY;
-            }
-            target.forEachObject(function (obj, index, objs) {
-                _calcObjSizeAfterScale(obj, scaleX, scaleY, false);
-            });
-        } else if (type === 'text' || type === 'i-text' || type === 'textbox') {// 文本对象：不做缩放
-            newProps = {
-                scaleX: 1,
-                scaleY: 1
-            };
-        } else {
-            let offsetSWX = target.strokeWidth * (scaleX - 1);
-            let offsetSWY = target.strokeWidth * (scaleY - 1);
-            if (type === 'ellipse') {
-                newProps = {
-                    rx: target.rx * scaleX + offsetSWX,
-                    ry: target.ry * scaleY + offsetSWY,
-                };
-                if (target.group) {
-                    newProps.left = target.left * scaleX;
-                    newProps.top = target.top * scaleY;
-                } else {
-                    newProps.scaleX = 1;
-                    newProps.scaleY = 1;
-                }
-            } else {// 对象
-                newProps = {
-                    width: target.width * scaleX + offsetSWX,
-                    height: target.height * scaleY + offsetSWY,
-                };
-                if (target.group) {
-                    newProps.left = target.left * scaleX;
-                    newProps.top = target.top * scaleY;
-                } else {
-                    newProps.scaleX = 1;
-                    newProps.scaleY = 1;
-                }
-            }
-        }
-        target.set(newProps).setCoords();
-    }
-
-    /**
-     * 合并对象属性：若存在相同属性则使用后面对象的属性
-     * @param obj1
-     * @param obj2
-     * @private
-     */
-    function _mergeObject(obj1, obj2) {
-        let result = {};
-        if (typeof obj1 !== 'object' && typeof obj2 !== 'object') {
-            return result;
-        } else if (typeof obj1 === 'object' && typeof obj2 !== 'object') {
-            return obj1;
-        } else if (typeof obj1 !== 'object' && typeof obj2 === 'object') {
-            return obj2;
-        } else {
-            for (let k in obj1) {
-                if (obj1[k] !== undefined) {
-                    result[k] = obj1[k];
-                }
-            }
-            for (let m in obj2) {
-                if (obj2[m] !== undefined) {
-                    result[m] = obj2[m];
-                }
-            }
-            return result;
-        }
-    }
-
-    /**
-     * 将16进制颜色值转换为rgb形式
-     * @private
-     * @param {string} hexStr - 颜色16进制字符串表示
-     * @param {number} opacity - 透明度
-     * @return {string} - 颜色RGB字符串表示
-     */
-    function _getRGBAColor(hexStr, opacity) {
-        let sColor = hexStr.toLowerCase();
-        if (sColor) {
-            if (sColor.length === 4) {
-                let sColorNew = '#';
-                for (let i = 1; i < 4; i += 1) {
-                    sColorNew += sColor.slice(i, i + 1).concat(sColor.slice(i, i + 1));
-                }
-                sColor = sColorNew;
-            }
-            //处理六位的颜色值
-            let sColorChange = [];
-            for (let j = 1; j < 7; j += 2) {
-                sColorChange.push(parseInt('0x' + sColor.slice(j, j + 2)));
-            }
-            return 'rgba(' + sColorChange.join(',') + ', ' + opacity + ')';
-        } else {
-            return 'rgba(0, 0, 0, ' + opacity + ')';
-        }
     }
 
     /**
@@ -1657,27 +1510,6 @@ import {MODE_CURSOR} from './mode-cursor';
             x: pClientRect.left + pClientRect.width / 2,
             y: pClientRect.top + pClientRect.height / 2,
         };
-    }
-
-    function _handleAgRectModify(target) {
-        let type = target.type;
-        if (type === 'activeSelection' || type === 'group') {
-            target.forEachObject(function (obj, index, objs) {
-                _handleAgRectModify(obj);
-            });
-        } else {
-            let labelObj = target._labelObject;
-            if (labelObj) {
-                labelObj.set({
-                    left: target.left,
-                    top: target.top - labelObj.height,
-                }).setCoords();
-            }
-        }
-    }
-
-    function _getCursorStyle(base64) {
-        return 'url("' + base64 + '"), auto';
     }
 
     function _bindEvtForObject(target, _this) {
@@ -1704,10 +1536,17 @@ import {MODE_CURSOR} from './mode-cursor';
                 let flag1 = target.isNew;
                 let flag2 = _this.editDirectly || evt.e.ctrlKey;
                 if (flag1 || flag2) {
-                    // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handOpen);
-                    target.moveCursor = target.hoverCursor = 'pointer';
-                    _this.refresh();
+                    target.set({
+                        hoverCursor: MODE_CURSOR.hand,
+                        moveCursor: MODE_CURSOR.hand
+                    });
                 }
+
+                target.set({
+                    backgroundColor: _this.drawStyle.backColorHover
+                });
+
+                _this.refresh();
             }
         });
         target.on('mouseout', function (evt) {
@@ -1718,23 +1557,29 @@ import {MODE_CURSOR} from './mode-cursor';
                 if (lObj && lObj.showMode === 'auto') {
                     lObj.set('visible', false);
                 }
-                target.moveCursor = target.hoverCursor = 'auto';
+                target.set({
+                    hoverCursor: MODE_CURSOR.auto,
+                    moveCursor: MODE_CURSOR.auto,
+                    backgroundColor: _this.drawStyle.backColor
+                });
                 _this.refresh();
             }
         });
         target.on('selected', function (evt) {
             if (lObj) {
                 lObj.item(0).set({
-                    fill: _this.drawStyle.fontBackColorH
+                    fill: _this.drawStyle.fontBackColorActive
                 });
                 lObj.item(1).set({
-                    fill: _this.drawStyle.fontColorH
+                    fill: _this.drawStyle.fontColorActive
                 });
                 lObj.set('visible', lObj.showMode === 'auto' ? true : lObj.showMode);
             }
+            target.set({
+                hoverCursor: MODE_CURSOR.move,
+                moveCursor: MODE_CURSOR.move
+            });
             target.selected = true;
-            // target.moveCursor = target.hoverCursor = _getCursorStyle(CURSOR.handHold);
-            target.moveCursor = target.hoverCursor = 'move';
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true, false);
@@ -1744,10 +1589,8 @@ import {MODE_CURSOR} from './mode-cursor';
                 lObj.set('visible', lObj.showMode === 'auto' ? false : lObj.showMode);
             }
             if (_this.mode === DrawerMode.draw) {
-                if (!target.isNew) {
-                    target.selectable = false;
-                    target.evented = false;
-                }
+                target.selectable = false;
+                target.evented = false;
             } else {
                 if (!_this.editDirectly) {
                     target.selectable = false;
@@ -1755,6 +1598,7 @@ import {MODE_CURSOR} from './mode-cursor';
                 }
             }
             target.selected = false;
+            target.backgroundColor = _this.drawStyle.backColor;
             _this.darkenObjects([target]);
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false, true);
@@ -1765,7 +1609,7 @@ import {MODE_CURSOR} from './mode-cursor';
             lObj && _this.canvas.remove(lObj);
         });
         target.on('moving', function (evt) {
-            target.moveCursor = 'move';
+            target.moveCursor = MODE_CURSOR.move;
         });
     }
 
@@ -1911,74 +1755,14 @@ import {MODE_CURSOR} from './mode-cursor';
 
     function _setForNewObject(target, drawer) {
         target.lockBoundary = drawer.option.lockBoundary;
+        target.agBoundary = getDrawBoundary(drawer._originCoord, drawer.backgroundImageSize);
         target.canvasWidth = drawer.originWidth;
         target.canvasHeight = drawer.originHeight;
-
-        if (!drawer.selectable) {
-            target.selectable = false;
-            target.hoverCursor = 'crosshair';
-            target.moveCursor = 'crosshair';
-        }
 
         _recordOriginProp(target, {
             strokeWidth: drawer.drawStyle.borderWidth,
             fontSize: drawer.drawStyle.fontSize,
-            drawIndex: drawer._drawIndexCounter++
-        });
-    }
-
-    /**
-     * 获取对象左上角点相对容器的坐标
-     * @param {*} object
-     */
-    function _getObjPointerToCon(object, zoom) {
-        // let bounRect = container.getBoundingClientRect();
-        // let conL = bounRect.left, conT = bounRect.top;
-        let l = object.left * zoom;
-        let t = object.top * zoom;
-        return {
-            x: l,
-            y: t
-        };
-    }
-
-    /**
-     * 设置悬浮框的显示与隐藏
-     * @param {*} overlays
-     * @param {*} ifShow
-     * @param {*} ifAuto
-     */
-    function _setOverlaysShow(overlays, ifShow, ifAuto) {
-        if (overlays instanceof Array && overlays.length) {
-            overlays.forEach(function (item) {
-                // 仅改变visible属性是auto的overlay
-                if (ifAuto) {
-                    if (item.overlayOpt.visible === 'auto') {
-                        item.style.visibility = ifShow ? 'visible' : 'hidden';
-                    }
-                } else if (ifShow) {
-                    item.style.visibility = 'visible';
-                } else {
-                    item.style.visibility = 'hidden';
-                }
-            });
-        }
-    }
-
-    function _setObjOverlaysShowOnScale(_this, ifShow) {
-        _this.canvas.forEachObject(function (obj, index, objs) {
-            let overlays = obj._overlays;
-            if (overlays) {
-                overlays.forEach(function (item) {
-                    // 记录原始值
-                    if (!ifShow) {
-                        item.oldVisibility = item.style.visibility;
-                        item.style.visibility = 'hidden';
-                    } else {
-                        item.style.visibility = item.oldVisibility ? item.oldVisibility : 'visible';
-                    }
-                });
-            }
+            drawIndex: drawer._drawIndex++
         });
     }
 
@@ -2021,88 +1805,21 @@ import {MODE_CURSOR} from './mode-cursor';
         }
     }
 
-    function _updateAllObjectOverlays(_this, zoom) {
-        _this.canvas.forEachObject(function (obj, index, objs) {
-            _updateObjectOverlays(obj, zoom);
+    /**
+     * 获取画布上鼠标所在位置的对象
+     * @param fCanvas
+     * @param objects
+     * @param evt
+     * @returns {Array}
+     * @private
+     */
+    function _getPointerObjects(fCanvas, objects, evt) {
+        let tarObjs = [];
+        objects.forEach((item) => {
+            if(fCanvas.containsPoint(evt, item)) {
+                tarObjs.push(item);
+            }
         });
-    }
-
-    function _updateObjectOverlays(target, zoom) {
-        let overlays = target._overlays;
-        if (overlays) {
-            overlays.forEach(function (item) {
-                _setOverlayPosition(item, zoom, item.overlayOpt);
-            });
-        }
-    }
-
-    function _setOverlayPosition(ele, zoom, overlayOpt) {
-        let objLTPos = _getObjPointerToCon(overlayOpt.target, zoom);
-        let eleBoundRect = ele.getBoundingClientRect();
-        let target = overlayOpt.target;
-        let borderWX = target.strokeWidth * zoom * target.scaleX;
-        let borderWY = target.strokeWidth * zoom * target.scaleY;
-        let tarL, tarT;
-        if (overlayOpt.position === 'top') {
-            tarL = objLTPos.x;
-            tarT = objLTPos.y - eleBoundRect.height;
-        } else if (overlayOpt.position === 'bottom') {
-            tarL = objLTPos.x;
-            tarT = objLTPos.y + borderWY + target.height * zoom * target.scaleY;
-        } else if (overlayOpt.position === 'left') {
-            tarL = objLTPos.x - eleBoundRect.width;
-            tarT = objLTPos.y;
-        } else if (overlayOpt.position === 'right') {
-            tarL = objLTPos.x + borderWX + target.width * zoom * target.scaleX;
-            tarT = objLTPos.y;
-        }
-        tarL += overlayOpt.offset[0];
-        tarT += overlayOpt.offset[1];
-        ele.style.left = tarL + 'px';
-        ele.style.top = tarT + 'px';
-    }
-
-    /**
-     * 限制对象不能移出图片范围
-     */
-    function _lockObjectMoveInDrawer(target, drawerW, drawerH, drawStyle) {
-        if (!target.lockBoundary) return false;
-
-        let maxL = drawerW - target.width - drawStyle.borderWidth;
-        let maxT = drawerH - target.height - drawStyle.borderWidth;
-        let l = target.left, t = target.top;
-        if (l < 0) {
-            target.set({
-                left: 0
-            }).setCoords();
-        } else if (l > maxL) {
-            target.set({
-                left: maxL
-            }).setCoords();
-        }
-        if (t < 0) {
-            target.set({
-                top: 0
-            }).setCoords();
-        } else if (t > maxT) {
-            target.set({
-                top: maxT
-            }).setCoords();
-        }
-        return true;
-    }
-
-    /**
-     *
-     * @param {获取最小或最大值} val1
-     * @param {*} val2
-     * @param {*} isMin - true:最小，false:最大
-     */
-    function _getMinOrMaxBetween(val1, val2, isMin) {
-        if (isMin) {
-            return (val1 > val2) ? val2 : val1;
-        } else {
-            return (val1 > val2) ? val1 : val2;
-        }
+        return tarObjs;
     }
 })(window);

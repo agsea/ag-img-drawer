@@ -45,6 +45,14 @@ gulp.task('minCss', function () {
         .pipe(gulp.dest(`${targetDir}/`));
 });
 
+// 压缩fabric.js
+gulp.task('minLib', function () {
+    return gulp.src(['./src/lib/fabric-2.3.2/fabric.js'])
+        .pipe(uglify())
+        .pipe(rename('fabric-custom.min.js'))
+        .pipe(gulp.dest('./src/lib/fabric-2.3.2/'));
+});
+
 // 打包模块化文件
 gulp.task('packJs_temp', function () {
     // 定义入口文件
@@ -107,4 +115,4 @@ gulp.task('watch', ['task_all'], function () {
 });
 
 // 执行任务
-gulp.task('default', ['task_all', 'watch']);
+gulp.task('default', ['task_all']);

@@ -15,7 +15,8 @@ import {MODE_CURSOR, getCanvasModeCursor} from './mode-cursor';
 import {
     limitObjectMoveBoundary,
     updateObjectOverlays,
-    setCanvasInteractive
+    setCanvasInteractive,
+    setStrokeWidthByScale
 } from './drawer-utils';
 
 let curDrawer;
@@ -75,7 +76,7 @@ function _moveItem(item, offsetX, offsetY, _this) {
     if(item.lockBoundary) {
         limitObjectMoveBoundary(item, _this._originCoord, _this.backgroundImageSize);
     }
-    updateObjectOverlays(item, _this.zoom);
+    updateObjectOverlays(item);
 }
 
 function objectModifiedHandler(target) {

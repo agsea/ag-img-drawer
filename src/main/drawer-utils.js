@@ -64,19 +64,70 @@ export function checkIfWithinBackImg(point, coord, imgSize) {
         point.y > coord[1] && point.y < coord[1] + imgSize[1];
 }
 
-export function updateObjectOverlays(target) {
+export function updateObjectOverlays(target, action) {
     let overlays = target._overlays;
     if (overlays) {
-        overlays.forEach(function (item) {
-            setOverlayPosition(target, item);
-        });
+        if(action) {
+            overlays.forEach(function (item) {
+                _setOverlayPosByAction(target, item, action);
+            });
+        }else {
+            overlays.forEach(function (item) {
+                setOverlayPosition(target, item);
+            });
+        }
     }
 }
 
-export function setOverlayPosition(target, ele) {
-    let overlayOpt = ele.overlayOpt;
+function _setOverlayPosByAction(target, overlay, action) {
+    let overlayOpt = overlay.overlayOpt;
 
-    let eleBoundRect = ele.getBoundingClientRect();
+    let eleBoundRect = overlay.getBoundingClientRect();
+    let sw = target.strokeWidth;
+
+    let coordTl = target.oCoords.tl;
+    let coordBr = target.oCoords.br;
+
+    if(action.type === 'scale') {
+        if(action.corner === 'tl') {
+            coordTl = action.pointer;
+        }else if(action.corner === 'bl') {
+            coordTl.x = action.pointer.x;
+            coordBr.y = action.pointer.y;
+        }else if(action.corner === 'tr') {
+            coordTl.y = action.pointer.y;
+            coordBr.x = action.pointer.x;
+        }
+        else if(action.corner === 'br') {
+            coordBr = action.pointer;
+        }
+    }
+
+    let tarL, tarT;
+    if (overlayOpt.position === 'top') {
+        tarL = coordTl.x;
+        tarT = coordTl.y - eleBoundRect.height - sw;
+    } else if (overlayOpt.position === 'bottom') {
+        tarL = coordTl.x;
+        tarT = coordBr.y + sw;
+    } else if (overlayOpt.position === 'left') {
+        tarL = coordTl.x - eleBoundRect.width;
+        tarT = coordTl.y;
+    } else if (overlayOpt.position === 'right') {
+        tarL = coordBr.x + sw;
+        tarT = coordTl.y;
+    }
+
+    tarL += overlayOpt.offset[0];
+    tarT += overlayOpt.offset[1];
+    overlay.style.left = tarL + 'px';
+    overlay.style.top = tarT + 'px';
+}
+
+export function setOverlayPosition(target, overlay) {
+    let overlayOpt = overlay.overlayOpt;
+
+    let eleBoundRect = overlay.getBoundingClientRect();
     let sw = target.strokeWidth;
 
     let coordTl = target.oCoords.tl;
@@ -98,8 +149,8 @@ export function setOverlayPosition(target, ele) {
 
     tarL += overlayOpt.offset[0];
     tarT += overlayOpt.offset[1];
-    ele.style.left = tarL + 'px';
-    ele.style.top = tarT + 'px';
+    overlay.style.left = tarL + 'px';
+    overlay.style.top = tarT + 'px';
 }
 
 /**
@@ -198,4 +249,40 @@ export function setObjectMoveLock(objects, isLock) {
             lockMovementY: isLock
         });
     });
+}
+
+/**
+ * 根据绘图器缩放等级计算边框大小
+ * @private
+ * @param originSW
+ * @param scale
+ */
+export function calcSWByScale(originSW, scale) {
+    let newSW = originSW / scale;
+    if(newSW > 8) {
+        newSW = 8;
+    }else if(newSW < 0.3) {
+        newSW = 0.3;
+    }
+    return newSW;
+}
+
+/**
+ * 根据缩放等级获取边框宽度
+ * @private
+ * @param item
+ * @param scale - 当前缩放比例
+ */
+export function setStrokeWidthByScale(item, scale) {
+    if (item.agType === 'ag-label') {
+        return;
+    }
+    if (item.isType('rect') || item.isType('ellipse')) {
+        let strokeWidth = calcSWByScale(item.originStrokeWidth, scale);
+        item.set('strokeWidth', strokeWidth).setCoords();
+    } else if (item.isType('group')) {
+        item.forEachObject(function (obj, index, objs) {
+            setStrokeWidthByScale(obj, scale);
+        });
+    }
 }

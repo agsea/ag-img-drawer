@@ -16,7 +16,9 @@ import {
     setCanvasInteractive,
     getShape,
     mergeObject,
-    setObjectMoveLock
+    setObjectMoveLock,
+    calcSWByScale,
+    setStrokeWidthByScale
 } from './drawer-utils';
 
 (function (global) {
@@ -270,14 +272,13 @@ import {
                 let ifCanDraw;
                 if(self.option.lockBoundary) {
                     ifCanDraw = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize);
-
                 }else {
                     ifCanDraw = true;
                 }
                 if(ifCanDraw) {
                     hit = true;
                     self.drawingItem = null;
-                    self.drawStyle._borderWidth = _calcSWByScale(self.drawStyle.borderWidth, self.zoom);
+                    self.drawStyle._borderWidth = calcSWByScale(self.drawStyle.borderWidth, self.zoom);
                     startX = evt.absolutePointer.x;
                     startY = evt.absolutePointer.y;
                 }
@@ -448,7 +449,6 @@ import {
                 if (zoom > 30) zoom = 30;
                 if (zoom < 0.1) zoom = 0.1;
                 self.setZoom(zoom, {x: evt.e.offsetX, y: evt.e.offsetY});
-                self.refresh();
             }
         });
 
@@ -478,7 +478,15 @@ import {
         canvas.on('object:scaling', function (evt) {
             let target = evt.target;
             DrawerEvt.objectModifiedHandler(target);
-            updateObjectOverlays(target);
+            updateObjectOverlays(target, {
+                type: 'scale',
+                corner: evt.transform.corner,
+                pointer: evt.pointer
+            });
+        });
+        canvas.on('object:scaled', function (evt) {
+            let target = evt.target;
+            _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
         });
 
         //选择集事件
@@ -620,7 +628,7 @@ import {
         this.canvas.add(object);
 
         object._labelObject && this.canvas.add(object._labelObject);
-        _setStrokeWidthByScale(object, this.zoom);
+        setStrokeWidthByScale(object, this.zoom);
         _bindEvtForObject(object, this);
         this.option.afterAdd(object);
     };
@@ -831,11 +839,10 @@ import {
 
         let zoom = Math.min(this.option.zoomWidthInLocate / w, this.option.zoomWidthInLocate / h);
         let zoomP = new fabric.Point(this.originWidth / 2, this.originHeight / 2);
-        this.setZoom(zoom, zoomP);
         if(this.mode !== DrawerMode.browse) {
             this.setActiveObject(object);
         }
-        this.refresh();
+        this.setZoom(zoom, zoomP);
     };
 
     /**
@@ -882,7 +889,7 @@ import {
 
         let objs = this.getObjects();
         objs.forEach((item) => {
-            _setStrokeWidthByScale(item, zoom);
+            setStrokeWidthByScale(item, zoom);
             updateObjectOverlays(item);
         });
         this.refresh();
@@ -1397,43 +1404,6 @@ import {
     }
 
     /**
-     * 根据缩放等级获取边框宽度
-     * @private
-     * @param item
-     * @param scale - 当前缩放比例
-     */
-    function _setStrokeWidthByScale(item, scale) {
-        if (item.agType === 'ag-label') {
-            return;
-        }
-        if (item.isType('rect') || item.isType('ellipse')) {
-            let strokeWidth = _calcSWByScale(item.originStrokeWidth, scale);
-            if (strokeWidth < 0.3) strokeWidth = 2;
-            item.set('strokeWidth', strokeWidth).setCoords();
-        } else if (item.isType('group')) {
-            item.forEachObject(function (obj, index, objs) {
-                _setStrokeWidthByScale(obj, scale);
-            });
-        }
-    }
-
-    /**
-     * 根据绘图器缩放等级计算边框大小
-     * @private
-     * @param originSW
-     * @param scale
-     */
-    function _calcSWByScale(originSW, scale) {
-        let newSW = originSW / scale;
-        if(newSW > 8) {
-            newSW = 8;
-        }else if(newSW < 0.3) {
-            newSW = 0.3;
-        }
-        return newSW;
-    }
-
-    /**
      * 根据容器宽高计算画布大小
      * @param conEle
      * @param padding
@@ -1821,5 +1791,74 @@ import {
             }
         });
         return tarObjs;
+    }
+
+    /**
+     * 计算对象缩放后的实际尺寸
+     * @param target
+     * @param scaleX
+     * @param scaleY
+     * @param isOutest - 是否是最外层对象
+     * @private
+     */
+    function _calcObjSizeAfterScale(target, scaleX, scaleY, isOutest) {
+        var newProps;
+        var type = target.type;
+        if(target.agType === 'ag-label') {// 自定义的标签类型不做缩放
+            newProps = {
+                width: target.width,
+                height: target.height,
+                scaleX: 1,
+                scaleY: 1
+            };
+        }else if(type === 'activeSelection' || type === 'group') {// 选择集、组
+            newProps = {
+                width: target.width * scaleX,
+                height: target.height * scaleY,
+                scaleX: 1,
+                scaleY: 1
+            };
+            if(!isOutest) {
+                newProps.left = target.left * scaleX;
+                newProps.top = target.top * scaleY;
+            }
+            target.forEachObject(function(obj, index, objs) {
+                _calcObjSizeAfterScale(obj, scaleX, scaleY, false);
+            });
+        }else if(type === 'text' || type === 'i-text' || type === 'textbox') {// 文本对象：不做缩放
+            newProps = {
+                scaleX: 1,
+                scaleY: 1
+            };
+        }else {
+            var offsetSWX = target.strokeWidth * (scaleX - 1);
+            var offsetSWY = target.strokeWidth * (scaleY - 1);
+            if(type === 'ellipse') {
+                newProps = {
+                    rx: target.rx * scaleX + offsetSWX,
+                    ry: target.ry * scaleY + offsetSWY,
+                };
+                if(target.group) {
+                    newProps.left = target.left * scaleX;
+                    newProps.top = target.top * scaleY;
+                }else {
+                    newProps.scaleX = 1;
+                    newProps.scaleY = 1;
+                }
+            }else {// 对象
+                newProps = {
+                    width: target.width * scaleX + offsetSWX,
+                    height: target.height * scaleY + offsetSWY,
+                };
+                if(target.group) {
+                    newProps.left = target.left * scaleX;
+                    newProps.top = target.top * scaleY;
+                }else {
+                    newProps.scaleX = 1;
+                    newProps.scaleY = 1;
+                }
+            }
+        }
+        target.set(newProps).setCoords();
     }
 })(window);

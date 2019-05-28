@@ -299,6 +299,7 @@ import {
                 this.requestRenderAll();
             }else {
                 self._pointerObjects = _getPointerObjects(self.canvas, self.getObjects(), evt);
+                self._pointerObjIndex = 0;
             }
 
             if (_hoverOnCanvas) {
@@ -428,17 +429,15 @@ import {
             // 绘制和编辑模式下按住ctrl可以对叠加对象切换选择
             if(self.keyStatus.ctrl && self.mode !== DrawerMode.browse) {
                 let pObjs = self._pointerObjects;
-                if(!self._pointerObjIndex) {
-                    self._pointerObjIndex = 0;
-                }
                 if(self._pointerObjIndex < 0) {
                     self._pointerObjIndex = pObjs.length - 1;
                 }else if(self._pointerObjIndex > pObjs.length - 1) {
                     self._pointerObjIndex = 0;
                 }
+                console.info(self._pointerObjIndex);
                 self.setActiveObject(pObjs[self._pointerObjIndex]);
                 self.refresh();
-                if(delta > 0) {
+                if(delta < 0) {
                     self._pointerObjIndex++;
                 }else {
                     self._pointerObjIndex--;

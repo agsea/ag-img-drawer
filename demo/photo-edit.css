@@ -20,6 +20,13 @@ body {
     z-index: 10;
 }
 
+.left {
+    float: left;
+    width: 150px;
+    height: 100%;
+    background-color: cyan;
+}
+
 .drawer-main {
     float: left;
     position: relative;

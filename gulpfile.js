@@ -115,4 +115,4 @@ gulp.task('watch', ['task_all'], function () {
 });
 
 // 执行任务
-gulp.task('default', ['task_all']);
+gulp.task('default', ['task_all', 'watch']);

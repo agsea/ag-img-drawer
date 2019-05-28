@@ -304,13 +304,13 @@ function drawRects() {
             ele: createLabelPopu('这是一个位于上面悬浮框-' + i),
             target: agRect,
             position: 'top',
-            visible: 'auto'
+            visible: true
         });
         drawer.createOverlay({
             ele: createPopu('这是一个位于下面悬浮框-' + i),
             target: agRect,
             position: 'bottom',
-            visible: false
+            visible: 'auto'
         });
         groupObjectMap['groupObj' + i] = agRect;
 

@@ -478,15 +478,18 @@ import {
         canvas.on('object:scaling', function (evt) {
             let target = evt.target;
             DrawerEvt.objectModifiedHandler(target);
-            updateObjectOverlays(target, {
-                type: 'scale',
-                corner: evt.transform.corner,
-                pointer: evt.pointer
-            });
+            _setObjectOverlaysShow(target, false, true);
+            // updateObjectOverlays(target, {
+            //     type: 'scale',
+            //     corner: evt.transform.corner,
+            //     pointer: evt.pointer
+            // });
         });
         canvas.on('object:scaled', function (evt) {
             let target = evt.target;
             _calcObjSizeAfterScale(target, target.scaleX, target.scaleY, true);
+            _setObjectOverlaysShow(target, true);
+            updateObjectOverlays(target);
         });
 
         //选择集事件
@@ -1491,7 +1494,7 @@ import {
         target.on('mouseover', function (evt) {
             _setClassForObjOverlay(target, 'hover', true);
             if (!target.selected) {
-                _setObjectOverlaysShow(target, true, true, 'hover');
+                _setObjectOverlaysShow(target, true);
 
                 if (lObj && lObj.showMode !== false) {
                     lObj.item(0).set({
@@ -1522,7 +1525,7 @@ import {
         target.on('mouseout', function (evt) {
             _setClassForObjOverlay(target, 'hover', false);
             if (!target.selected) {
-                _setObjectOverlaysShow(target, false, true);
+                _setObjectOverlaysShow(target, false);
 
                 if (lObj && lObj.showMode === 'auto') {
                     lObj.set('visible', false);
@@ -1552,7 +1555,7 @@ import {
             target.selected = true;
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
-            _setObjectOverlaysShow(target, true, false);
+            _setObjectOverlaysShow(target, true);
         });
         target.on('deselected', function (evt) {
             if (lObj) {
@@ -1571,7 +1574,7 @@ import {
             target.backgroundColor = _this.drawStyle.backColor;
             _this.darkenObjects([target]);
             _setClassForObjOverlay(target, 'selected', false);
-            _setObjectOverlaysShow(target, false, true);
+            _setObjectOverlaysShow(target, false);
             _this.option.afterObjectDeSelect(target);
         });
         target.on('removed', function (evt) {
@@ -1736,18 +1739,20 @@ import {
         });
     }
 
-    function _setObjectOverlaysShow(target, ifShow, ifAuto) {
+    function _setObjectOverlaysShow(target, ifShow, force) {
         let overlays = target._overlays;
         if (overlays) {
             overlays.forEach(function (item) {
-                if (!ifShow) {
-                    item.style.visibility = 'hidden';
-                } else if (ifAuto) {
-                    if (item.overlayOpt.visible === 'auto' && !target.selected) {
+                if(force) {
+                    item.style.visibility = ifShow ? 'visible' : 'hidden';
+                }else {
+                    if ((item.overlayOpt.visible === 'auto' && target.selected) || item.overlayOpt.visible === true) {
+                        item.style.visibility = 'visible';
+                    }else if(item.overlayOpt.visible === false) {
+                        item.style.visibility = 'hidden';
+                    }else {
                         item.style.visibility = ifShow ? 'visible' : 'hidden';
                     }
-                } else {
-                    item.style.visibility = 'visible';
                 }
             });
         }
@@ -1836,7 +1841,7 @@ import {
             if(type === 'ellipse') {
                 newProps = {
                     rx: target.rx * scaleX + offsetSWX,
-                    ry: target.ry * scaleY + offsetSWY,
+                    ry: target.ry * scaleY + offsetSWY
                 };
                 if(target.group) {
                     newProps.left = target.left * scaleX;

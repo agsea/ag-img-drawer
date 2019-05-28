@@ -1,5 +1,5 @@
 /**
- * 基于fabric.js的Web绘图器
+ * 基于fabric.js的Web绘图器（核心代码）
  * Created by aegean on 2017/5/19 0019.
  */
 

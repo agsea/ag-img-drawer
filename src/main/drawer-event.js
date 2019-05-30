@@ -173,6 +173,7 @@ function keydownHandler(evt) {
             self.setMode(DrawerMode.browse);
         }
     } else if (keyCode === 27) {  //ESC键
+        self.cancelSelection();
         self.option.afterKeydownEsc();
     }
 }

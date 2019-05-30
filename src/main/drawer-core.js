@@ -3,10 +3,15 @@
  * Created by aegean on 2017/5/19 0019.
  */
 
+// TODO（2-019-5-30）: 悬浮层在缩放对象时能跟随移动，目前暂时实现为拖拽时隐层悬浮层，缩放结束后依据悬浮层显示策略设置悬浮层显隐状态
+
+
 import DrawerEvt from './drawer-event';
 import DrawerMode from './drawer-mode';
 import {MODE_CURSOR} from './mode-cursor';
 import {
+    AG_TYPE,
+    isAgType,
     getDrawBoundary,
     limitDrawBoundary,
     limitObjectMoveBoundary,
@@ -20,6 +25,10 @@ import {
     calcSWByScale,
     setStrokeWidthByScale
 } from './drawer-utils';
+import {
+    drawAssistLine,
+    removeAssistLine
+} from './drawer-assist';
 
 (function (global) {
     // 默认配置项
@@ -33,6 +42,7 @@ import {
         loadingMask: false,  //加载动画遮罩
         lockBoundary: false, //锁定操作边界在图片范围内
         zoomWidthInLocate: 350, // 定位对象时对象缩放的最大尺寸
+        enableAssistLine: true, // 是否启用绘制辅助线
         afterInitialize: function () {
         },
         afterAdd: function (object) {
@@ -195,7 +205,7 @@ import {
 
         // 创建画布背景图片对象
         let backImg = new fabric.Image();
-        backImg.agType = 'ag-bgImg';
+        backImg.agType = AG_TYPE.agBgImg;
         backImg.selectable = false;
         backImg.evented = false;
         self.canvas.add(backImg);
@@ -281,6 +291,11 @@ import {
                     self.drawStyle._borderWidth = calcSWByScale(self.drawStyle.borderWidth, self.zoom);
                     startX = evt.absolutePointer.x;
                     startY = evt.absolutePointer.y;
+
+                    if(self.mode === DrawerMode.draw && option.enableAssistLine && !hasSelect) {
+                        drawAssistLine(self, evt.absolutePointer);
+                    }
+                    self.refresh();
                 }
             }
         });
@@ -380,6 +395,11 @@ import {
                 self.drawingItem.isNew = true;
                 self.canvas.add(self.drawingItem);
                 _bindEvtForObject(self.drawingItem, self);
+
+                if(option.enableAssistLine) {
+                    drawAssistLine(self, evt.absolutePointer);
+                }
+
                 self.refresh();
             }
         });
@@ -409,6 +429,9 @@ import {
 
                 self.drawingItem = null;
             }
+            if(self.mode === DrawerMode.draw && option.enableAssistLine) {
+                removeAssistLine(self);
+            }
         });
         canvas.on('mouse:over', function (evt) {
             _hoverOnCanvas = true;
@@ -434,7 +457,6 @@ import {
                 }else if(self._pointerObjIndex > pObjs.length - 1) {
                     self._pointerObjIndex = 0;
                 }
-                console.info(self._pointerObjIndex);
                 self.setActiveObject(pObjs[self._pointerObjIndex]);
                 self.refresh();
                 if(delta < 0) {
@@ -704,12 +726,9 @@ import {
      */
     global.AgImgDrawer.prototype.getObjects = function (exclude) {
         let result = [];
-        exclude = mergeObject({
-            'ag-bgImg': true,
-            'ag-label': true
-        }, exclude);
+        exclude = mergeObject({}, exclude);
         this.canvas.forEachObject(function (obj, index, objs) {
-            if (!exclude[obj.type] && !exclude[obj.agType]) {
+            if (!exclude[obj.type] && _isInteractiveAgType(obj)) {
                 result.push(obj);
             }
         });
@@ -723,13 +742,11 @@ import {
      */
     global.AgImgDrawer.prototype.getSelection = function (exclude) {
         let result = [], tmp;
-        exclude = mergeObject({
-            'ag-label': true
-        }, exclude);
+        exclude = mergeObject(AG_TYPE, exclude);
         let activeObjs = this.canvas.getActiveObjects();
         for (let i = 0, len = activeObjs.length; i < len; i++) {
             tmp = activeObjs[i];
-            if (!exclude[tmp.type] && !exclude[tmp.agType]) {
+            if (!exclude[tmp.type] && !isAgType(tmp.agType)) {
                 result.push(tmp);
             }
         }
@@ -997,7 +1014,7 @@ import {
         if (flag === true) {
             this.canvas.selection = true;
             this.canvas.forEachObject(function (obj, index, objs) {
-                if (obj.agType !== 'ag-label' && obj.agType !== 'ag-bgImg') {
+                if (_isInteractiveAgType(obj)) {
                     obj.selectable = true;
                     obj.evented = true;
                 }
@@ -1008,7 +1025,7 @@ import {
             }
             this.canvas.selection = false;
             this.canvas.forEachObject(function (obj, index, objs) {
-                if (obj.agType !== 'ag-label' && obj.agType !== 'ag-bgImg' && !obj.selected) {
+                if (_isInteractiveAgType(obj) && !obj.selected) {
                     obj.selectable = false;
                     obj.evented = false;
                 }
@@ -1062,7 +1079,7 @@ import {
             originStrokeWidth: this.drawStyle.borderWidth
         }, option);
         let rect = new fabric.Rect(option);
-        rect.agType = 'ag-rect';
+        rect.agType = AG_TYPE.agRect;
         return rect;
     };
 
@@ -1105,7 +1122,7 @@ import {
             hasControls: false,
             selectable: false
         });
-        label.agType = 'ag-label';
+        label.agType = AG_TYPE.agLabel;
         return label;
     };
 
@@ -1135,7 +1152,7 @@ import {
         label.targetObject = rect;
         label.showMode = showMode;
         label.set('visible', showMode !== 'auto' ? showMode : false);
-        rect.agType = 'ag-rect';
+        rect.agType = AG_TYPE.agRect;
         rect._labelObject = label;
         return rect;
     };
@@ -1176,13 +1193,8 @@ import {
      */
     global.AgImgDrawer.prototype.highlightObjects = function (objects) {
         let self = this;
-        if (_beforeActiveObjs) {
-            self.darkenObjects(_beforeActiveObjs);
-        }
 
         if (objects && objects.length) {
-            _beforeActiveObjs = objects;
-
             let object, type;
             for (let i = 0; i < objects.length; i++) {
                 object = objects[i];
@@ -1307,6 +1319,14 @@ import {
      */
     global.AgImgDrawer.prototype.setObjectOverlaysShow = function (target, ifShow) {
         _setObjectOverlaysShow(target, ifShow);
+    };
+
+    /**
+     * 设置绘制辅助线是否可用
+     * @param enable
+     */
+    global.AgImgDrawer.prototype.enableDrawAssistLine = function (enable) {
+        this.enableAssistLine = enable !== false ? true : false;
     };
 
 
@@ -1607,7 +1627,7 @@ import {
         if (target) {
             if (target.type === 'activeSelection') {
                 target.forEachObject(function (obj, index, objs) {
-                    if (obj.agType !== 'ag-label') {
+                    if (obj.agType !== AG_TYPE.agLabel) {
                         copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
                     }
                 });
@@ -1808,7 +1828,7 @@ import {
     function _calcObjSizeAfterScale(target, scaleX, scaleY, isOutest) {
         var newProps;
         var type = target.type;
-        if(target.agType === 'ag-label') {// 自定义的标签类型不做缩放
+        if(target.agType === AG_TYPE.agLabel) {// 自定义的标签类型不做缩放
             newProps = {
                 width: target.width,
                 height: target.height,
@@ -1864,5 +1884,10 @@ import {
             }
         }
         target.set(newProps).setCoords();
+    }
+
+    function _isInteractiveAgType(target) {
+        return target.agType !== AG_TYPE.agBgImg && target.agType !== AG_TYPE.agLabel &&
+            target.agType !== AG_TYPE.agAssistLine;
     }
 })(window);

@@ -16,6 +16,7 @@ $().ready(function() {
         // loadingMask: false,
         lockBoundary: true,
         // padding: 50,
+        // enableAssistLine: false,
         afterInitialize: function() {
             drawer.setMode('draw');
             drawer.setEditDirectly(true);

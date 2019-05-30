@@ -2,6 +2,24 @@
 
 import DrawerMode from "./drawer-mode";
 
+// 自定义的一些对象类型
+export const AG_TYPE = {
+    agBgImg: 'ag_bgImg',
+    agLabel: 'ag_label',
+    agRect: 'ag-rect',
+    agAssistLine: 'ag_assistLine'
+};
+
+// 检测是否是定义对象类型
+export function isAgType(type) {
+    for(let key in AG_TYPE) {
+        if(type === AG_TYPE[key]) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * 获取绘制边界
  */

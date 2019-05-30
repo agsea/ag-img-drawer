@@ -130,7 +130,6 @@ import {
         this.originHeight = null;
         this.drawable = false;  //是否是可绘制状态
         this.dragDirectly = true;  //是否可以使用鼠标左键直接拖拽
-        // this.selectable = true; //是否允许选择对象
         this.selectedItems = null;
         this.editDirectly = false;  //仅在编辑模式有效：是否可以直接对画布上的对象编辑，如果为false则需摁住ctrl键操作对象
         this.backgroundUrl = null;
@@ -281,7 +280,7 @@ import {
             }else {
                 let ifCanDraw;
                 if(self.option.lockBoundary) {
-                    ifCanDraw = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize);
+                    ifCanDraw = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize).within;
                 }else {
                     ifCanDraw = true;
                 }
@@ -322,7 +321,8 @@ import {
                 _mousePosition.move.y = evt.offsetY / self.zoom;
             }
 
-            if (hit && self.drawable && (self.mode === DrawerMode.draw) && !hasSelect) {
+            if (hit && self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
+                self.isDrawing = true;
                 endX = evt.absolutePointer.x;
                 endY = evt.absolutePointer.y;
 
@@ -409,6 +409,7 @@ import {
             setObjectMoveLock(self.getObjects(), false);
 
             hit = false;
+            self.isDrawing = false;
             if (self.drawingItem) {
                 if (self.drawingItem.width < 3 && self.drawingItem.height < 3) {
                     canvas.remove(self.drawingItem);
@@ -464,7 +465,7 @@ import {
                 }else {
                     self._pointerObjIndex--;
                 }
-            }else {
+            }else if(!self.isDrawing) {
                 let zoom = self.zoom;
                 zoom = zoom - delta / 200;
                 if (zoom > 30) zoom = 30;

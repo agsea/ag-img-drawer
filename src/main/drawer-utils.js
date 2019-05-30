@@ -78,8 +78,13 @@ export function limitObjectMoveBoundary(target, coord, imgSize) {
 }
 
 export function checkIfWithinBackImg(point, coord, imgSize) {
-    return point.x > coord[0] && point.x < coord[0] + imgSize[0] &&
-        point.y > coord[1] && point.y < coord[1] + imgSize[1];
+    let x = point.x > coord[0] && point.x < coord[0] + imgSize[0];
+    let y = point.y > coord[1] && point.y < coord[1] + imgSize[1];
+    return {
+        xWithin: x,
+        yWithin: y,
+        within: x && y
+    };
 }
 
 export function updateObjectOverlays(target, action) {

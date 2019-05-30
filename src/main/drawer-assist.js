@@ -3,7 +3,8 @@
  */
 
 import {
-    calcSWByScale
+    calcSWByScale,
+    checkIfWithinBackImg
 } from "./drawer-utils";
 
 // 辅助线绘制样式
@@ -12,7 +13,7 @@ const ASSIST_LINE_STYLE = {
     width: 1
 };
 
-function _drawLine(fCanvas, points, lineWidth) {
+function _drawAssLine(fCanvas, points, lineWidth) {
     let line = new fabric.Line(points, {
         stroke: ASSIST_LINE_STYLE.color,
         strokeWidth: lineWidth,
@@ -27,15 +28,20 @@ function _drawLine(fCanvas, points, lineWidth) {
 export function drawAssistLine(drawer, pointer) {
     removeAssistLine(drawer);
 
-    let cW = drawer.originWidth;
-    let cH = drawer.originHeight;
+    let coord = drawer._originCoord;
+    let imgSize = drawer.backgroundImageSize;
+    let ifWithin = checkIfWithinBackImg(pointer, coord, imgSize);
     let sw = calcSWByScale(ASSIST_LINE_STYLE.width, drawer.zoom);
-    let hLine = _drawLine(drawer.canvas, [0, pointer.y, cW, pointer.y], sw);
-    let vLine = _drawLine(drawer.canvas, [pointer.x, 0, pointer.x, cH], sw);
-    hLine.bringToFront();
-    vLine.bringToFront();
-    drawer.assistLineH = hLine;
-    drawer.assistLineV = vLine;
+    if(ifWithin.yWithin) {
+        let hLine = _drawAssLine(drawer.canvas, [coord[0], pointer.y, coord[0] + imgSize[0], pointer.y], sw);
+        hLine.bringToFront();
+        drawer.assistLineH = hLine;
+    }
+    if(ifWithin.xWithin) {
+        let vLine = _drawAssLine(drawer.canvas, [pointer.x, coord[1], pointer.x, coord[1] + imgSize[1]], sw);
+        vLine.bringToFront();
+        drawer.assistLineV = vLine;
+    }
 }
 
 export function removeAssistLine(drawer) {

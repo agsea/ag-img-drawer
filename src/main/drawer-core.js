@@ -12,6 +12,7 @@ import {MODE_CURSOR} from './mode-cursor';
 import {
     AG_TYPE,
     isAgType,
+    AG_SOURCE,
     getDrawBoundary,
     limitDrawBoundary,
     limitObjectMoveBoundary,
@@ -78,6 +79,8 @@ import {
         afterKeydownDown: function () {
         },
         afterKeydownEsc: function () {
+        },
+        afterZoom: function () {  // 画布缩放后的回调函数
         }
     };
 
@@ -132,9 +135,10 @@ import {
         this.dragDirectly = true;  //是否可以使用鼠标左键直接拖拽
         this.selectedItems = null;
         this.editDirectly = false;  //仅在编辑模式有效：是否可以直接对画布上的对象编辑，如果为false则需摁住ctrl键操作对象
-        this.backgroundUrl = null;
+        // this.backgroundUrl = null;
         this.backgroundImage = null;
         this.backgroundImageSize = [0, 0];
+        this.backgroundImageScale = [1, 1];
         this.zoom = 1;
         this.loadingMask = false;
         this.drawStyle = {  // 绘制样式
@@ -180,6 +184,7 @@ import {
         self.maskEle = _createMaskEle();
         self.loadingEle = _createLoadingEle();
         self.loadingMask = option.loadingMask;
+        self.zoomPercentEle = _createZoomPercentEle();
 
         let container = document.getElementById(self.containerId);
         let conSize = _calcCanvasConSize(container, option.margin);
@@ -193,6 +198,7 @@ import {
         container.appendChild(canvasEle);
         container.appendChild(self.maskEle);
         container.appendChild(self.loadingEle);
+        container.appendChild(self.zoomPercentEle);
 
         // 创建画布（fabric.js实例）
         self.canvas = new fabric.Canvas(self.canvasEleId);
@@ -221,11 +227,11 @@ import {
      * @param drawer
      * @param url
      * @param updateSize
-     * @param inScale
+     * @param lockScale
      * @param calc
      * @private
      */
-    function _setCanvasBackImage(drawer, url, updateSize, inScale, calc) {
+    function _setCanvasBackImage(drawer, url, updateSize, lockScale, calc) {
         if(drawer.loadingMask) {
             drawer.maskEle.style.display = 'block';
         }
@@ -235,7 +241,7 @@ import {
         let opt = drawer.option;
         bImg.setSrc(url, () => {
             if(updateSize) {
-                let imgSize = _calcCanvasBackImageSize(bImg, opt.width, opt.height, opt.padding, inScale);
+                let imgSize = _calcCanvasBackImageSize(bImg, opt.width, opt.height, opt.padding, lockScale);
                 bImg.center();
                 drawer.backgroundImageSize = imgSize;
                 drawer._originCoord = _calcOringinCoordinate(opt.width, opt.height, imgSize[0], imgSize[1]);
@@ -243,6 +249,10 @@ import {
             }else {
                 _scaleImgToSize(bImg, drawer.backgroundImageSize);
             }
+            drawer.backgroundImageScale = {
+                x: bImg.scaleX,
+                y: bImg.scaleY
+            };
 
             drawer.maskEle.style.display = 'none';
             drawer.loadingEle.style.display = 'none';
@@ -423,6 +433,7 @@ import {
                         }
                     }
 
+                    self.drawingItem.agSource = AG_SOURCE.byDraw;
                     _setForNewObject(self.drawingItem, self);
                     option.afterAdd(self.drawingItem);
                     option.afterDraw(self.drawingItem);
@@ -443,7 +454,7 @@ import {
             _mousePosition.move.x = 0;
             _mousePosition.move.y = 0;
         });
-        // 缩放
+        // 滚轮
         canvas.on('mouse:wheel', function (evt) {
             evt.e.preventDefault();
             evt.e.stopPropagation();
@@ -470,6 +481,7 @@ import {
                 zoom = zoom - delta / 200;
                 if (zoom > 30) zoom = 30;
                 if (zoom < 0.1) zoom = 0.1;
+                _setZoomPercent(self.zoomPercentEle, self.zoom, zoom);
                 self.setZoom(zoom, {x: evt.e.offsetX, y: evt.e.offsetY});
             }
         });
@@ -645,11 +657,14 @@ import {
      * @param object
      */
     global.AgImgDrawer.prototype.addObject = function (object) {
-        // 添加偏移
-        object.set({
-            left: object.left + this._originCoord[0],
-            top: object.top + this._originCoord[1]
-        });
+        if(object.agSource !== AG_SOURCE.byDraw) {
+            // 添加偏移
+            object.set({
+                left: object.left + this._originCoord[0],
+                top: object.top + this._originCoord[1]
+            });
+            object.agSource = AG_SOURCE.byApi;
+        }
         this.canvas.add(object);
 
         object._labelObject && this.canvas.add(object._labelObject);
@@ -684,7 +699,7 @@ import {
      * @param ifExecCallback - 是否执行回调函数，默认为true
      */
     global.AgImgDrawer.prototype.removeObject = function (object, ifExecCallback) {
-        ifExecCallback = ifExecCallback === false ? false : true;
+        ifExecCallback = ifExecCallback !== false;
 
         let objects = [object];
         if (ifExecCallback) {
@@ -704,7 +719,7 @@ import {
      * @param ifExecCallback - 是否执行回调函数，默认为true
      */
     global.AgImgDrawer.prototype.removeObjects = function (objects, ifExecCallback) {
-        ifExecCallback = ifExecCallback === false ? false : true;
+        ifExecCallback = ifExecCallback !== false;
         if (ifExecCallback) {
             if (this.option.beforeDelete(objects, this.keyStatus.ctrl) === false) return;
         }
@@ -743,11 +758,11 @@ import {
      */
     global.AgImgDrawer.prototype.getSelection = function (exclude) {
         let result = [], tmp;
-        exclude = mergeObject(AG_TYPE, exclude);
+        exclude = mergeObject({}, exclude);
         let activeObjs = this.canvas.getActiveObjects();
         for (let i = 0, len = activeObjs.length; i < len; i++) {
             tmp = activeObjs[i];
-            if (!exclude[tmp.type] && !isAgType(tmp.agType)) {
+            if (!exclude[tmp.type] && _isInteractiveAgType(tmp)) {
                 result.push(tmp);
             }
         }
@@ -760,7 +775,7 @@ import {
     global.AgImgDrawer.prototype.cancelSelection = function () {
         this.canvas.discardActiveObject();
         let activeObject = this.canvas.getActiveObject();
-        activeObject && this.removeObject(activeObject);
+        activeObject && this.removeObject(activeObject, false);
         this.canvas.renderAll();
     };
 
@@ -768,7 +783,7 @@ import {
      * 删除所选中的对象
      */
     global.AgImgDrawer.prototype.removeSelection = function () {
-        this.removeObjects(this.getSelection());
+        this.removeObjects(this.getSelection(), false);
     };
 
     /**
@@ -794,8 +809,9 @@ import {
      * @param object
      * @returns {string}
      */
-    global.AgImgDrawer.prototype.serializeObject = function (object) {
-        return getShape(object, this._originCoord, 1, 1);
+    global.AgImgDrawer.prototype.serializeObject = function (object, imgScaleXY) {
+        imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
+        return getShape(object, this._originCoord, imgScaleXY);
     };
 
     /**
@@ -803,11 +819,12 @@ import {
      * @param objects
      * @returns {Array}
      */
-    global.AgImgDrawer.prototype.serializeObjects = function (objects) {
+    global.AgImgDrawer.prototype.serializeObjects = function (objects, imgScaleXY) {
         let wkts = [];
         if (objects && objects.length) {
+            imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
             for (let i = 0, len = objects.length; i < len; i++) {
-                wkts.push(this.serializeObject(objects[i]));
+                wkts.push(this.serializeObject(objects[i], imgScaleXY));
             }
         }
         return wkts;
@@ -817,9 +834,10 @@ import {
      * 序列化画布上的所有对象（不包括过滤的对象）
      * @returns {*}
      */
-    global.AgImgDrawer.prototype.serializeAllObject = function() {
+    global.AgImgDrawer.prototype.serializeAllObject = function(imgScaleXY) {
+        imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
         let objs = this.getObjects();
-        return this.serializeObjects(objs);
+        return this.serializeObjects(objs, imgScaleXY);
     };
 
     /**
@@ -828,7 +846,7 @@ import {
     global.AgImgDrawer.prototype.clear = function () {
         let objs = this.getObjects();
         objs.forEach((item) => {
-            this.removeObject(item);
+            this.removeObject(item, false);
         });
         this.option.afterClear(objs);
     };
@@ -913,6 +931,7 @@ import {
             updateObjectOverlays(item);
         });
         this.refresh();
+        this.option.afterZoom();
     };
 
     /**
@@ -1446,24 +1465,38 @@ import {
      * @param canWidth
      * @param canHeight
      * @param padding
-     * @param inScale
+     * @param lockScale
      * @returns {number[]}
      * @private
      */
-    function _calcCanvasBackImageSize(oImg, canWidth, canHeight, padding, inScale) {
+    function _calcCanvasBackImageSize(oImg, canWidth, canHeight, padding, lockScale) {
         padding = isNaN(padding) ? 0 : padding;
-        inScale = inScale !== false;
+        lockScale = lockScale !== false;
+
+        // 分别计算画布、图片的宽高比
+        let canWhRatio = canWidth / canHeight;
+        let imgWhRatio = oImg.width / oImg.height;
 
         //计算背景图片大小
-        let oImgScale = oImg.width / oImg.height;
         let nOImgWidth, nOImgHeight;
-        nOImgWidth = canWidth - padding * 2;
-        nOImgWidth = nOImgWidth < 0 ? 50 : nOImgWidth;
-        if(inScale) {
-            nOImgHeight = nOImgWidth / oImgScale;
-        }else {
+        if(canWhRatio > imgWhRatio) {
             nOImgHeight = canHeight - padding * 2;
             nOImgHeight = nOImgHeight < 0 ? 50 : nOImgHeight;
+            if(lockScale) {
+                nOImgWidth = nOImgHeight * imgWhRatio;
+            }else {
+                nOImgWidth = canWidth - padding * 2;
+                nOImgWidth = nOImgWidth < 0 ? 50 : nOImgWidth;
+            }
+        }else {
+            nOImgWidth = canWidth - padding * 2;
+            nOImgWidth = nOImgWidth < 0 ? 50 : nOImgWidth;
+            if(lockScale) {
+                nOImgHeight = nOImgWidth / imgWhRatio;
+            }else {
+                nOImgHeight = canHeight - padding * 2;
+                nOImgHeight = nOImgHeight < 0 ? 50 : nOImgHeight;
+            }
         }
 
         let newSize = [nOImgWidth, nOImgHeight];
@@ -1795,7 +1828,7 @@ import {
         let overlays = target._overlays;
         if (overlays) {
             overlays.forEach(function (item) {
-                item.parentNode.removeChild(item);
+                item.parentNode && item.parentNode.removeChild(item);
             });
         }
     }
@@ -1890,5 +1923,35 @@ import {
     function _isInteractiveAgType(target) {
         return target.agType !== AG_TYPE.agBgImg && target.agType !== AG_TYPE.agLabel &&
             target.agType !== AG_TYPE.agAssistLine;
+    }
+
+    function _createZoomPercentEle() {
+        var ele = document.createElement('div');
+        ele.className = 'aDrawer-percent';
+        ele.innerHTML = '100 %';
+        return ele;
+    }
+
+    function _setZoomPercent(perEle, beforeZoom, curZoom) {
+        const ANIMATE_DURATION = 500;
+        const PERCENT_INTERVAL = 10;
+
+        // 显示缩放百分比
+        let zoomFrame = beforeZoom;
+        let perNums = ANIMATE_DURATION / PERCENT_INTERVAL;
+        let perStep = (curZoom - beforeZoom) / perNums;
+        if(perEle.perTimer) clearInterval(perEle.perTimer);
+        perEle.perTimer = setInterval(function() {
+            if(perNums <= 0) {
+                clearInterval(perEle.perTimer);
+                perEle.style.opacity = 0;
+                return;
+            }else {
+                perNums--;
+                zoomFrame += perStep;
+            }
+            perEle.innerHTML = Math.round(zoomFrame * 100) + ' %';
+            perEle.style.opacity = 1;
+        }, PERCENT_INTERVAL);
     }
 })(window);

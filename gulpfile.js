@@ -46,6 +46,7 @@ gulp.task('minCss', function () {
 });
 
 // 压缩fabric.js
+// TODO: 使用uglify压缩后存在错误，暂时使用了网页版压缩工具
 gulp.task('minLib', function () {
     return gulp.src(['./src/lib/fabric-2.3.2/fabric.js'])
         .pipe(uglify())
@@ -71,7 +72,7 @@ gulp.task('packJs_temp', function () {
         .pipe(gulp.dest(`${targetDir}/temp/`))  // 生成不压缩的临时代码
         .pipe(uglify())
         .pipe(rename(`${pkgJSON.name}-${pkgJSON.version}-temp.min.js`))
-        .pipe(gulp.dest(`${targetDir}/temp/`))   // 生成压缩的临时代码
+        .pipe(gulp.dest(`${targetDir}/temp/`));   // 生成压缩的临时代码
 
 });
 

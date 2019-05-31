@@ -10,6 +10,12 @@ export const AG_TYPE = {
     agAssistLine: 'ag_assistLine'
 };
 
+// 对象来源
+export const AG_SOURCE = {
+    byApi: 'api',
+    byDraw: 'draw'
+};
+
 // 检测是否是定义对象类型
 export function isAgType(type) {
     for(let key in AG_TYPE) {
@@ -153,6 +159,7 @@ export function setOverlayPosition(target, overlay) {
     let eleBoundRect = overlay.getBoundingClientRect();
     let sw = target.strokeWidth;
 
+
     let coordTl = target.oCoords.tl;
     let coordBr = target.oCoords.br;
     let tarL, tarT;
@@ -202,15 +209,14 @@ export function setCanvasInteractive(fCanvas, mode) {
  * 获取对象得WKT表示，序列化取左上角，右下角
  * @param object
  * @param coord
- * @param ratioX
- * @param ratioY
+ * @param imgRatioXY
  * @returns {string}
  */
-export function getShape(object, coord, ratioX, ratioY) {
-    let l = (object.left - coord[0]) / ratioX;
-    let t = (object.top - coord[1]) / ratioY;
-    let w = object.width / ratioX;
-    let h = object.height / ratioY;
+export function getShape(object, coord, imgRatioXY) {
+    let l = (object.left - coord[0]) / imgRatioXY.x;
+    let t = (object.top - coord[1]) / imgRatioXY.y;
+    let w = object.width / imgRatioXY.x;
+    let h = object.height / imgRatioXY.y;
 
     if(isNaN(l) || isNaN(t) || isNaN(w) || isNaN(h)) {
         throw new Error("解析对象shape失败");
@@ -284,8 +290,8 @@ export function calcSWByScale(originSW, scale) {
     let newSW = originSW / scale;
     if(newSW > 8) {
         newSW = 8;
-    }else if(newSW < 0.3) {
-        newSW = 0.3;
+    }else if(newSW < 0.1) {
+        newSW = 0.1;
     }
     return newSW;
 }

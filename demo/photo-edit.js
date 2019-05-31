@@ -43,7 +43,7 @@ $().ready(function() {
             // console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
-            // console.info('删除前', ctrlKey, objects);
+            console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
@@ -54,7 +54,7 @@ $().ready(function() {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            // console.info('选中', objects);
+            console.info('选中', objects);
         },
         afterObjectDeSelect: function(object) {
             // console.info('单个物体取消选中', object);
@@ -73,6 +73,9 @@ $().ready(function() {
         },
         afterKeydownEsc: function () {
             // console.info('esc');
+        },
+        afterZoom: function () {
+            console.info('zoom');
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -281,7 +284,7 @@ $('#tips').click(function() {
  * 序列化对象
  */
 function serializeObjects() {
-    console.info(drawer.serializeObjects());
+    console.info(drawer.serializeAllObject());
 }
 
 /**

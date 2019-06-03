@@ -61,3 +61,13 @@ export function removeAssistLine(drawer) {
         delete drawer.assistLineV;
     }
 }
+
+export function updateAssistLine(drawer) {
+    let sw = calcSWByScale(ASSIST_LINE_STYLE.width, drawer.zoom);
+    if(drawer.assistLineH) {
+        drawer.assistLineH.set('strokeWidth', sw);
+    }
+    if(drawer.assistLineV) {
+        drawer.assistLineV.set('strokeWidth', sw);
+    }
+}

@@ -18,6 +18,9 @@ import {
     setCanvasInteractive,
     setStrokeWidthByScale
 } from './drawer-utils';
+import {
+    removeAssistLine
+} from './drawer-assist';
 
 let curDrawer;
 let ctrlKey, spaceKey;
@@ -30,6 +33,7 @@ function setDrawer(drawer) {
 function _toggleDragMode(drawer, flag) {
     setCanvasInteractive(drawer.canvas, drawer.mode);
     if(flag) {
+        removeAssistLine(drawer);
         drawer.canvas.defaultCursor = MODE_CURSOR.grab;
     }else {
         drawer.canvas.defaultCursor = getCanvasModeCursor(drawer.mode);

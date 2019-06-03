@@ -29,7 +29,8 @@ import {
 import {
     ASSIST_LINE_MODE,
     drawAssistLine,
-    removeAssistLine
+    removeAssistLine,
+    updateAssistLine
 } from './drawer-assist';
 
 (function (global) {
@@ -328,96 +329,97 @@ import {
                 self._pointerObjects = _getPointerObjects(self.canvas, self.getObjects(), evt);
                 self._pointerObjIndex = 0;
 
-                if(self.mode === DrawerMode.draw && option.showAssistLine === ASSIST_LINE_MODE.always) {
+                if(!self.keyStatus.space && self.mode === DrawerMode.draw &&
+                    option.showAssistLine === ASSIST_LINE_MODE.always) {
                     drawAssistLine(self, evt.absolutePointer);
+                }
+
+                if (hit && self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
+                    self.isDrawing = true;
+                    endX = evt.absolutePointer.x;
+                    endY = evt.absolutePointer.y;
+
+                    // 修正至图片范围内
+                    if (self.option.lockBoundary) {
+                        endX = limitDrawBoundary(endX, self._originCoord[0], self.backgroundImageSize[0]);
+                        endY = limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
+                    }
+
+                    if (self.drawingItem) {
+                        canvas.remove(self.drawingItem);
+                    }
+
+                    tempLeft = (endX > startX) ? startX : endX;
+                    tempTop = (endY > startY) ? startY : endY;
+
+                    //判断绘制类型
+                    if (self.drawType === DRAWER_TYPE.rect) {
+                        tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
+                        tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                        tempWidth = tempWidth < 0 ? 0 : tempWidth;
+                        tempHeight = tempHeight < 0 ? 0 : tempHeight;
+
+                        self.drawingItem = new fabric.Rect({
+                            width: tempWidth,
+                            height: tempHeight,
+                            left: tempLeft,
+                            top: tempTop,
+                            fill: self.drawStyle.backColor,
+                            stroke: self.drawStyle.borderColor,
+                            strokeWidth: self.drawStyle._borderWidth,
+                            originStrokeWidth: self.drawStyle.borderWidth
+                        });
+                    } else if (self.drawType === DRAWER_TYPE.ellipse) {
+                        tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                        tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                        tempWidth = tempWidth < 0 ? 0 : tempWidth;
+                        tempHeight = tempHeight < 0 ? 0 : tempHeight;
+
+                        self.drawingItem = new fabric.Ellipse({
+                            rx: tempWidth,
+                            ry: tempHeight,
+                            left: tempLeft,
+                            top: tempTop,
+                            fill: self.drawStyle.backColor,
+                            stroke: self.drawStyle.borderColor,
+                            strokeWidth: self.drawStyle._borderWidth,
+                            originStrokeWidth: self.drawStyle.borderWidth
+                        });
+                    } else if (self.drawType === DRAWER_TYPE.text) {
+                        self.drawingItem = new fabric.IText('', {
+                            width: Math.abs(endX - startX),
+                            left: tempLeft,
+                            top: tempTop,
+                            fontFamily: self.drawStyle.fontFamily,
+                            fontSize: self.drawStyle.fontSize + 2,
+                            fill: self.drawStyle.fontColor,
+                            fontWeight: self.drawStyle.fontWeight,
+                            fontStyle: self.drawStyle.fontStyle,
+                            underline: self.drawStyle.underline,
+                            linethrough: self.drawStyle.linethrough,
+                            overline: self.drawStyle.overline,
+                            stroke: self.drawStyle.strokeColor,
+                            strokeWidth: self.drawStyle.strokeWidth,
+                            charSpacing: 1,
+                            editingBorderColor: '#0099FF',
+                            selectionColor: 'rgba(255, 204, 0, 0.5)'
+                        });
+                    }
+                    self.drawingItem.isNew = true;
+                    self.canvas.add(self.drawingItem);
+                    _bindEvtForObject(self.drawingItem, self);
+
+                    if(!self.keyStatus.space && option.showAssistLine === ASSIST_LINE_MODE.onMouseDown) {
+                        drawAssistLine(self, evt.absolutePointer);
+                    }
+
+                    self.refresh();
                 }
             }
 
             if (_hoverOnCanvas) {
                 _mousePosition.move.x = evt.absolutePointer.x;
                 _mousePosition.move.y = evt.absolutePointer.y;
-            }
-
-            if (hit && self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
-                self.isDrawing = true;
-                endX = evt.absolutePointer.x;
-                endY = evt.absolutePointer.y;
-
-                // 修正至图片范围内
-                if (self.option.lockBoundary) {
-                    endX = limitDrawBoundary(endX, self._originCoord[0], self.backgroundImageSize[0]);
-                    endY = limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
-                }
-
-                if (self.drawingItem) {
-                    canvas.remove(self.drawingItem);
-                }
-
-                tempLeft = (endX > startX) ? startX : endX;
-                tempTop = (endY > startY) ? startY : endY;
-
-                //判断绘制类型
-                if (self.drawType === DRAWER_TYPE.rect) {
-                    tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
-                    tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
-                    tempWidth = tempWidth < 0 ? 0 : tempWidth;
-                    tempHeight = tempHeight < 0 ? 0 : tempHeight;
-
-                    self.drawingItem = new fabric.Rect({
-                        width: tempWidth,
-                        height: tempHeight,
-                        left: tempLeft,
-                        top: tempTop,
-                        fill: self.drawStyle.backColor,
-                        stroke: self.drawStyle.borderColor,
-                        strokeWidth: self.drawStyle._borderWidth,
-                        originStrokeWidth: self.drawStyle.borderWidth
-                    });
-                } else if (self.drawType === DRAWER_TYPE.ellipse) {
-                    tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
-                    tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
-                    tempWidth = tempWidth < 0 ? 0 : tempWidth;
-                    tempHeight = tempHeight < 0 ? 0 : tempHeight;
-
-                    self.drawingItem = new fabric.Ellipse({
-                        rx: tempWidth,
-                        ry: tempHeight,
-                        left: tempLeft,
-                        top: tempTop,
-                        fill: self.drawStyle.backColor,
-                        stroke: self.drawStyle.borderColor,
-                        strokeWidth: self.drawStyle._borderWidth,
-                        originStrokeWidth: self.drawStyle.borderWidth
-                    });
-                } else if (self.drawType === DRAWER_TYPE.text) {
-                    self.drawingItem = new fabric.IText('', {
-                        width: Math.abs(endX - startX),
-                        left: tempLeft,
-                        top: tempTop,
-                        fontFamily: self.drawStyle.fontFamily,
-                        fontSize: self.drawStyle.fontSize + 2,
-                        fill: self.drawStyle.fontColor,
-                        fontWeight: self.drawStyle.fontWeight,
-                        fontStyle: self.drawStyle.fontStyle,
-                        underline: self.drawStyle.underline,
-                        linethrough: self.drawStyle.linethrough,
-                        overline: self.drawStyle.overline,
-                        stroke: self.drawStyle.strokeColor,
-                        strokeWidth: self.drawStyle.strokeWidth,
-                        charSpacing: 1,
-                        editingBorderColor: '#0099FF',
-                        selectionColor: 'rgba(255, 204, 0, 0.5)'
-                    });
-                }
-                self.drawingItem.isNew = true;
-                self.canvas.add(self.drawingItem);
-                _bindEvtForObject(self.drawingItem, self);
-
-                if(option.showAssistLine === ASSIST_LINE_MODE.onMouseDown) {
-                    drawAssistLine(self, evt.absolutePointer);
-                }
-
-                self.refresh();
             }
         });
         canvas.on('mouse:up', function(evt) {
@@ -494,6 +496,11 @@ import {
                 if (zoom < 0.1) zoom = 0.1;
                 _setZoomPercent(self.zoomPercentEle, self.zoom, zoom);
                 self.setZoom(zoom, {x: evt.e.offsetX, y: evt.e.offsetY});
+            }
+
+            if(self.mode === DrawerMode.draw) {
+                updateAssistLine(self);
+                self.refresh();
             }
         });
 

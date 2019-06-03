@@ -97,7 +97,7 @@ import {
     let _beforeActiveObjs = null;
     let _copySource = null;
     let _clipboard = null;
-    let _outerPasteTimes = null;
+    let _outerPasteTimes = 1;
     let _hoverOnCanvas = false;
     let _mousePosition = {
         move: {x: 0, y: 0}
@@ -1332,7 +1332,7 @@ import {
     global.AgImgDrawer.prototype.copySelectedObject = function () {
         let source = this.canvas.getActiveObject();
         _copySource = source;
-        _outerPasteTimes = 0;
+        _outerPasteTimes = 1;
         _clipboard = _copyObject(source, this);
         _clipboard.length && this.option.afterCopy(_clipboard, source);
     };
@@ -1363,7 +1363,7 @@ import {
     global.AgImgDrawer.prototype.clearClipboard = function () {
         _copySource = null;
         _clipboard = null;
-        _outerPasteTimes = 0;
+        _outerPasteTimes = 1;
     };
 
     /**

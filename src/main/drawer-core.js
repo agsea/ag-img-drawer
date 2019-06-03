@@ -328,7 +328,7 @@ import {
                 self._pointerObjects = _getPointerObjects(self.canvas, self.getObjects(), evt);
                 self._pointerObjIndex = 0;
 
-                if(option.showAssistLine === ASSIST_LINE_MODE.always) {
+                if(self.mode === DrawerMode.draw && option.showAssistLine === ASSIST_LINE_MODE.always) {
                     drawAssistLine(self, evt.absolutePointer);
                 }
             }
@@ -610,6 +610,10 @@ import {
             this.canvas.selection = false;
             this.drawable = true;
             this.setExistObjectInteractive(false);
+        }
+
+        if(mode !== DrawerMode.draw) {
+            removeAssistLine(this);
         }
     };
 

@@ -13,6 +13,13 @@ const ASSIST_LINE_STYLE = {
     width: 1
 };
 
+// 辅助线显示策略
+export const ASSIST_LINE_MODE = {
+    always: 0,  // 常显示
+    onMouseDown: 1, // 鼠标摁下显示
+    hide: 3 // 不显示
+};
+
 function _drawAssLine(fCanvas, points, lineWidth) {
     let line = new fabric.Line(points, {
         stroke: ASSIST_LINE_STYLE.color,

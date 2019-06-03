@@ -140,7 +140,7 @@ function keydownHandler(evt) {
                 break;
         }
         self.refresh();
-    } else if (keyCode === 46) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
+    } else if (keyCode === 46 && !evt.shiftKey) {// 删除选中对象（如果是选中的对象则必须先取消选中再删除，否则无法成功删除）
         if (document.activeElement.nodeName === 'BODY') {
             let selection = self.getSelection();
             self.removeObjects(selection);

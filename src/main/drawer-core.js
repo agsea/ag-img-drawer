@@ -27,6 +27,7 @@ import {
     setStrokeWidthByScale
 } from './drawer-utils';
 import {
+    ASSIST_LINE_MODE,
     drawAssistLine,
     removeAssistLine
 } from './drawer-assist';
@@ -43,7 +44,7 @@ import {
         loadingMask: false,  //加载动画遮罩
         lockBoundary: false, //锁定操作边界在图片范围内
         zoomWidthInLocate: 350, // 定位对象时对象缩放的最大尺寸
-        enableAssistLine: true, // 是否启用绘制辅助线
+        showAssistLine: 0, // 是否启用绘制辅助线
         afterInitialize: function () {
         },
         afterAdd: function (object) {
@@ -93,7 +94,9 @@ import {
 
     // 内部变量
     let _beforeActiveObjs = null;
+    let _copySource = null;
     let _clipboard = null;
+    let _outerPasteTimes = null;
     let _hoverOnCanvas = false;
     let _mousePosition = {
         move: {x: 0, y: 0}
@@ -281,8 +284,6 @@ import {
 
         //鼠标事件
         canvas.on('mouse:down', function (evt) {
-            _hoverOnCanvas = true;
-
             if (self.keyStatus.space || self.mode === DrawerMode.browse) {
                 setObjectMoveLock(self.getObjects(), true);
                 this.isDragging = true;
@@ -301,7 +302,8 @@ import {
                     startX = evt.absolutePointer.x;
                     startY = evt.absolutePointer.y;
 
-                    if(self.mode === DrawerMode.draw && option.enableAssistLine && !hasSelect) {
+                    if(self.mode === DrawerMode.draw && option.showAssistLine === ASSIST_LINE_MODE.onMouseDown &&
+                        !hasSelect) {
                         drawAssistLine(self, evt.absolutePointer);
                     }
                     self.refresh();
@@ -310,6 +312,7 @@ import {
         });
         canvas.on('mouse:move', function (evt) {
             _hoverOnCanvas = true;
+            self._withinBackImg = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize).within;
 
             if (this.isDragging) {
                 let e = evt.e;
@@ -324,11 +327,15 @@ import {
             }else {
                 self._pointerObjects = _getPointerObjects(self.canvas, self.getObjects(), evt);
                 self._pointerObjIndex = 0;
+
+                if(option.showAssistLine === ASSIST_LINE_MODE.always) {
+                    drawAssistLine(self, evt.absolutePointer);
+                }
             }
 
             if (_hoverOnCanvas) {
-                _mousePosition.move.x = evt.offsetX / self.zoom;
-                _mousePosition.move.y = evt.offsetY / self.zoom;
+                _mousePosition.move.x = evt.absolutePointer.x;
+                _mousePosition.move.y = evt.absolutePointer.y;
             }
 
             if (hit && self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
@@ -406,7 +413,7 @@ import {
                 self.canvas.add(self.drawingItem);
                 _bindEvtForObject(self.drawingItem, self);
 
-                if(option.enableAssistLine) {
+                if(option.showAssistLine === ASSIST_LINE_MODE.onMouseDown) {
                     drawAssistLine(self, evt.absolutePointer);
                 }
 
@@ -441,7 +448,7 @@ import {
 
                 self.drawingItem = null;
             }
-            if(self.mode === DrawerMode.draw && option.enableAssistLine) {
+            if(self.mode === DrawerMode.draw && option.showAssistLine !== ASSIST_LINE_MODE.hide) {
                 removeAssistLine(self);
             }
         });
@@ -453,6 +460,10 @@ import {
             _hoverOnCanvas = false;
             _mousePosition.move.x = 0;
             _mousePosition.move.y = 0;
+
+            if(!self._withinBackImg) {
+                removeAssistLine(self);
+            }
         });
         // 滚轮
         canvas.on('mouse:wheel', function (evt) {
@@ -1195,7 +1206,7 @@ import {
         option.offset = option.offset instanceof Array ? option.offset : [0, 0];
         option.ele.classList.add('ag-overlay');
         option.visible === undefined && (option.visible = 'auto');
-        let show = option.visible === true ? true : false;
+        let show = option.visible === true;
         // option.ele.style.display = option.visible ? 'block' : 'none';
         option.ele.style.visibility = show ? 'visible' : 'hidden';
         option.ele.overlayOpt = option;
@@ -1309,6 +1320,8 @@ import {
      */
     global.AgImgDrawer.prototype.copySelectedObject = function () {
         let source = this.canvas.getActiveObject();
+        _copySource = source;
+        _outerPasteTimes = 0;
         _clipboard = _copyObject(source, this);
         _clipboard.length && this.option.afterCopy(_clipboard, source);
     };
@@ -1318,11 +1331,18 @@ import {
      */
     global.AgImgDrawer.prototype.pasteSelectedObject = function () {
         if (_clipboard && _clipboard.length) {
-            _setCopyObjectPosition();
-            this.addObjects(_clipboard);
+            _setCopyObjectPosition(this._originCoord);
+            let cpObj = null;
+            for (let i = 0, len = _clipboard.length; i < len; i++) {
+                cpObj = _clipboard[i];
+                this.addObject(cpObj);
+                _addCopyedOverlays(cpObj, this);
+            }
             this.refresh();
             this.option.afterPaste(_clipboard);
-            _clipboard = _copyObject(_clipboard, this);
+
+            !_hoverOnCanvas && _outerPasteTimes++;
+            _clipboard = _copyObject(_copySource, this);
         }
     };
 
@@ -1330,7 +1350,9 @@ import {
      * 清除剪贴板
      */
     global.AgImgDrawer.prototype.clearClipboard = function () {
+        _copySource = null;
         _clipboard = null;
+        _outerPasteTimes = 0;
     };
 
     /**
@@ -1342,11 +1364,11 @@ import {
     };
 
     /**
-     * 设置绘制辅助线是否可用
+     * 设置绘制辅助线显示模式
      * @param enable
      */
-    global.AgImgDrawer.prototype.enableDrawAssistLine = function (enable) {
-        this.enableAssistLine = enable !== false ? true : false;
+    global.AgImgDrawer.prototype.setAssistLineMode = function (mode) {
+        this.showAssistLine = mode;
     };
 
 
@@ -1662,7 +1684,8 @@ import {
             if (target.type === 'activeSelection') {
                 target.forEachObject(function (obj, index, objs) {
                     if (obj.agType !== AG_TYPE.agLabel) {
-                        copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
+                        copys.push(_copyWithLabelObject(obj, obj.left + _outerPasteTimes * 15,
+                            obj.top + _outerPasteTimes * 15, true, _this));
                     }
                 });
             } else if (target instanceof Array) {
@@ -1674,14 +1697,17 @@ import {
 
                         tmp._labelObject && (obj._labelObject = tmp._labelObject);
                         if (tmp._copyFromSelection) {
-                            copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, true, _this));
+                            copys.push(_copyWithLabelObject(obj, obj.left + _outerPasteTimes * 15,
+                                obj.top + _outerPasteTimes * 15, true, _this));
                         } else {
-                            copys.push(_copyWithLabelObject(obj, obj.left + 15, obj.top + 15, false, _this));
+                            copys.push(_copyWithLabelObject(obj, obj.left + _outerPasteTimes* 15,
+                                obj.top + _outerPasteTimes * 15, false, _this));
                         }
                     });
                 }
             } else {
-                copys.push(_copyWithLabelObject(target, target.left + 15, target.top + 15, false, _this));
+                copys.push(_copyWithLabelObject(target, target.left + _outerPasteTimes * 15,
+                    target.top + _outerPasteTimes * 15, false, _this));
             }
         }
         return copys;
@@ -1724,7 +1750,22 @@ import {
                 copy = obj;
             });
         }
-        // copy.agType = target.agType;
+
+        // 复制overlay
+        let overlays = target._overlays;
+        copy._overlays = [];
+        if(overlays instanceof Array) {
+            let newOly = null;
+            overlays.forEach((oly) => {
+                newOly = oly.cloneNode(true);
+                newOly.overlayOpt = mergeObject({}, oly.overlayOpt);
+                newOly.overlayOpt.ele = newOly;
+                newOly.overlayOpt.target = copy;
+                copy._overlays.push(newOly);
+            });
+        }
+        target._overlays = overlays;
+
         copy.isNew = true;
         return copy;
     }
@@ -1744,7 +1785,22 @@ import {
         }
     }
 
-    function _setCopyObjectPosition() {
+    /**
+     * 将复制的悬浮层添加到页面
+     * @private
+     */
+    function _addCopyedOverlays(target, _this) {
+        let container = document.getElementById(_this.containerId);
+        let overlays = target._overlays;
+        if(overlays instanceof Array) {
+            overlays.forEach((oly) => {
+                container.appendChild(oly);
+                setOverlayPosition(target, oly);
+            });
+        }
+    }
+
+    function _setCopyObjectPosition(coord) {
         if (_clipboard instanceof Array) {
             let tarX, tarY;
             let tmp, tmpLabel;
@@ -1753,11 +1809,11 @@ import {
                 tmpLabel = tmp._labelObject;
 
                 if (_hoverOnCanvas) {
-                    tarX = _mousePosition.move.x;
-                    tarY = _mousePosition.move.y;
+                    tarX = _mousePosition.move.x - coord[0];
+                    tarY = _mousePosition.move.y - coord[1];
                 } else {
-                    tarX = tmp.left;
-                    tarY = tmp.top;
+                    tarX = tmp.left - coord[0];
+                    tarY = tmp.top - coord[1];
                 }
 
                 if (tmpLabel) {

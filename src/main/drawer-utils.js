@@ -6,7 +6,7 @@ import DrawerMode from "./drawer-mode";
 export const AG_TYPE = {
     agBgImg: 'ag_bgImg',
     agLabel: 'ag_label',
-    agRect: 'ag-rect',
+    agRect: 'ag_rect',
     agAssistLine: 'ag_assistLine'
 };
 

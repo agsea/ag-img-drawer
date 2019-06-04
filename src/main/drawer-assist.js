@@ -3,6 +3,7 @@
  */
 
 import {
+    AG_TYPE,
     calcSWByScale,
     checkIfWithinBackImg
 } from "./drawer-utils";
@@ -24,7 +25,7 @@ function _drawAssLine(fCanvas, points, lineWidth) {
     let line = new fabric.Line(points, {
         stroke: ASSIST_LINE_STYLE.color,
         strokeWidth: lineWidth,
-        agType: 'ag-assistLine',
+        agType: AG_TYPE.agAssistLine,
         selectable: false,
         evented: false
     });

@@ -18,7 +18,7 @@ const ASSIST_LINE_STYLE = {
 export const ASSIST_LINE_MODE = {
     always: 0,  // 常显示
     onMouseDown: 1, // 鼠标摁下显示
-    hide: 3 // 不显示
+    hide: 2 // 不显示
 };
 
 function _drawAssLine(fCanvas, points, lineWidth) {

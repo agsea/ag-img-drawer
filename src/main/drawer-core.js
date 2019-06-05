@@ -45,7 +45,7 @@ import {
         loadingMask: false,  //加载动画遮罩
         lockBoundary: false, //锁定操作边界在图片范围内
         zoomWidthInLocate: 350, // 定位对象时对象缩放的最大尺寸
-        showAssistLine: 0, // 是否启用绘制辅助线
+        assistLineMode: 0, // 是否启用绘制辅助线
         afterInitialize: function () {
         },
         afterAdd: function (object) {
@@ -173,6 +173,7 @@ import {
             ctrl: false,
             space: false
         };
+        this.assistLineMode = 0;
         _initCanvasContent(this, option);
     };
 
@@ -303,7 +304,7 @@ import {
                     startX = evt.absolutePointer.x;
                     startY = evt.absolutePointer.y;
 
-                    if(self.mode === DrawerMode.draw && option.showAssistLine === ASSIST_LINE_MODE.onMouseDown &&
+                    if(self.mode === DrawerMode.draw && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown &&
                         !hasSelect) {
                         drawAssistLine(self, evt.absolutePointer);
                     }
@@ -330,7 +331,7 @@ import {
                 self._pointerObjIndex = 0;
 
                 if(!self.keyStatus.space && self.mode === DrawerMode.draw &&
-                    option.showAssistLine === ASSIST_LINE_MODE.always) {
+                    self.assistLineMode === ASSIST_LINE_MODE.always) {
                     drawAssistLine(self, evt.absolutePointer);
                 }
 
@@ -409,7 +410,7 @@ import {
                     self.canvas.add(self.drawingItem);
                     _bindEvtForObject(self.drawingItem, self);
 
-                    if(!self.keyStatus.space && option.showAssistLine === ASSIST_LINE_MODE.onMouseDown) {
+                    if(!self.keyStatus.space && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown) {
                         drawAssistLine(self, evt.absolutePointer);
                     }
 
@@ -450,7 +451,7 @@ import {
 
                 self.drawingItem = null;
             }
-            if(self.mode === DrawerMode.draw && option.showAssistLine !== ASSIST_LINE_MODE.hide) {
+            if(self.mode === DrawerMode.draw && self.assistLineMode !== ASSIST_LINE_MODE.hide) {
                 removeAssistLine(self);
             }
         });
@@ -463,7 +464,7 @@ import {
             _mousePosition.move.x = 0;
             _mousePosition.move.y = 0;
 
-            if(!self._withinBackImg) {
+            if(/*!self._withinBackImg && */!self.isDrawing) {
                 removeAssistLine(self);
             }
         });
@@ -531,11 +532,6 @@ import {
             let target = evt.target;
             DrawerEvt.objectModifiedHandler(target);
             _setObjectOverlaysShow(target, false, true);
-            // updateObjectOverlays(target, {
-            //     type: 'scale',
-            //     corner: evt.transform.corner,
-            //     pointer: evt.pointer
-            // });
         });
         canvas.on('object:scaled', function (evt) {
             let target = evt.target;
@@ -576,7 +572,7 @@ import {
             option.afterCancelSelect();
         });
 
-        //键盘事件
+        // 键盘事件
         DrawerEvt.setDrawer(self);
         window.removeEventListener('keydown', DrawerEvt.keydownHandler, false);
         window.addEventListener('keydown', DrawerEvt.keydownHandler, false);
@@ -1379,7 +1375,10 @@ import {
      * @param enable
      */
     global.AgImgDrawer.prototype.setAssistLineMode = function (mode) {
-        this.showAssistLine = mode;
+        this.assistLineMode = mode;
+        if(mode === ASSIST_LINE_MODE.hide) {
+            removeAssistLine(this);
+        }
     };
 
 

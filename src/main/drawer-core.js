@@ -18,6 +18,7 @@ import {
     limitObjectMoveBoundary,
     checkIfWithinBackImg,
     updateObjectOverlays,
+    setOverlayInteractive,
     setOverlayPosition,
     setCanvasInteractive,
     getShape,
@@ -94,7 +95,7 @@ import {
     };
 
     // 内部变量
-    let _beforeActiveObjs = null;
+    let _beforeHgObjs = null;
     let _copySource = null;
     let _clipboard = null;
     let _outerPasteTimes = 1;
@@ -169,6 +170,7 @@ import {
         };
         this._drawIndex = 0;
         this._originCoord = [0, 0]; // 定位坐标原点，取初始化后图片左上角点
+        this._beforeHgObjs = null;
         this.keyStatus = {
             ctrl: false,
             space: false
@@ -568,7 +570,6 @@ import {
         canvas.on('selection:cleared', function (evt) {
             hasSelect = false;
             self.selectedItems = null;
-            _beforeActiveObjs = null;
             option.afterCancelSelect();
         });
 
@@ -684,10 +685,12 @@ import {
             object.agSource = AG_SOURCE.byApi;
         }
         this.canvas.add(object);
-
         object._labelObject && this.canvas.add(object._labelObject);
-        setStrokeWidthByScale(object, this.zoom);
+
+        // 设置对象可交互性
+        this.setObjectInteractive(object, object.agInteractive);
         _bindEvtForObject(object, this);
+        setStrokeWidthByScale(object, this.zoom);
         this.option.afterAdd(object);
     };
 
@@ -819,6 +822,11 @@ import {
     global.AgImgDrawer.prototype.setObjectVisible = function (object, visible) {
         object.set('visible', visible);
         _setControlShow(object, visible);
+        if(visible !== false) {
+            _setObjectOverlaysShow(object, true, false);
+        }else {
+            _setObjectOverlaysShow(object, false, true);
+        }
         this.refresh();
     };
 
@@ -862,6 +870,8 @@ import {
      * 清空绘图板
      */
     global.AgImgDrawer.prototype.clear = function () {
+        this._beforeHgObjs = null;
+
         let objs = this.getObjects();
         objs.forEach((item) => {
             this.removeObject(item, false);
@@ -1052,7 +1062,7 @@ import {
         if (flag === true) {
             this.canvas.selection = true;
             this.canvas.forEachObject(function (obj, index, objs) {
-                if (_isInteractiveAgType(obj)) {
+                if ((obj.agInteractive !== false) && _isInteractiveAgType(obj)) {
                     obj.selectable = true;
                     obj.evented = true;
                 }
@@ -1221,6 +1231,7 @@ import {
         let self = this;
         let container = document.getElementById(self.containerId);
         container.appendChild(option.ele);
+        setOverlayInteractive(option.ele, option.target.agInteractive);
         setOverlayPosition(option.target, option.ele);
         option.target._overlays.push(option.ele);
     };
@@ -1233,9 +1244,14 @@ import {
         let self = this;
 
         if (objects && objects.length) {
+            self.darkenObjects(self._beforeHgObjs);
+            self._beforeHgObjs = objects;
+
             let object, type;
             for (let i = 0; i < objects.length; i++) {
                 object = objects[i];
+                if(!object) continue;
+
                 type = object.type;
                 if (type === 'activeSelection' || type === 'group') {
                     object.forEachObject(function (obj, index, objs) {
@@ -1283,6 +1299,8 @@ import {
             let object, type;
             for (let i = 0; i < objects.length; i++) {
                 object = objects[i];
+                if(!object) continue;
+
                 type = object.type;
                 if (type === 'activeSelection' || type === 'group') {
                     object.forEachObject(function (obj, index, objs) {
@@ -1378,6 +1396,24 @@ import {
         this.assistLineMode = mode;
         if(mode === ASSIST_LINE_MODE.hide) {
             removeAssistLine(this);
+        }
+    };
+
+    /**
+     * 设置对象是否可以交互
+     * @param target
+     * @param flag
+     */
+    global.AgImgDrawer.prototype.setObjectInteractive = function (target, flag) {
+        flag = flag !== false;
+        target.agInteractive = flag;
+        target.selectable = flag;
+        target.evented = flag;
+        let olys = target._overlays;
+        if(olys && olys.length) {
+            olys.forEach((item) => {
+                setOverlayInteractive(item, flag);
+            });
         }
     };
 
@@ -1870,7 +1906,8 @@ import {
                     }else if(item.overlayOpt.visible === false) {
                         item.style.visibility = 'hidden';
                     }else {
-                        item.style.visibility = ifShow ? 'visible' : 'hidden';
+                        // item.style.visibility = ifShow ? 'visible' : 'hidden';
+                        item.style.visibility = 'hidden';
                     }
                 }
             });
@@ -1988,7 +2025,7 @@ import {
 
     function _isInteractiveAgType(target) {
         return target.agType !== AG_TYPE.agBgImg && target.agType !== AG_TYPE.agLabel &&
-            target.agType !== AG_TYPE.agAssistLine;
+            target.agType !== AG_TYPE.agAssistLine && target.agType !== AG_TYPE.agExclude;
     }
 
     function _createZoomPercentEle() {

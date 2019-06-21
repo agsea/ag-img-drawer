@@ -92,7 +92,9 @@ function createLabelPopu(text) {
 
 function createPopu(text) {
     var div = document.createElement('div');
-    div.innerHTML = text;
+    var textarea = document.createElement('textarea');
+    div.appendChild(textarea);
+    textarea.value = text;
     return div;
 }
 
@@ -383,6 +385,16 @@ function locate() {
 }
 function refresh() {
     drawer.refresh();
+}
+var ifObjVisible = true;
+function setObjVisible() {
+    ifObjVisible = !ifObjVisible;
+    drawer.setObjectVisible(groupObjectMap['groupObj0'], ifObjVisible);
+}
+var ifObjInteractive = true;
+function setObjInteractive() {
+    ifObjInteractive = !ifObjInteractive;
+    drawer.setObjectInteractive(groupObjectMap['groupObj1'], ifObjInteractive);
 }
 
 /**

@@ -7,7 +7,8 @@ export const AG_TYPE = {
     agBgImg: 'ag_bgImg',
     agLabel: 'ag_label',
     agRect: 'ag_rect',
-    agAssistLine: 'ag_assistLine'
+    agAssistLine: 'ag_assistLine',
+    agExclude: 'ag_exclude' // 要排除的对象
 };
 
 // 对象来源
@@ -151,6 +152,23 @@ function _setOverlayPosByAction(target, overlay, action) {
     tarT += overlayOpt.offset[1];
     overlay.style.left = tarL + 'px';
     overlay.style.top = tarT + 'px';
+}
+
+export function setOverlayInteractive(overlay, flag) {
+    if(overlay.tagName === 'INPUT' || overlay.tagName === 'TEXTAREA') {
+        if(flag !== false) {
+            overlay.removeAttribute('readOnly');
+        }else {
+            overlay.setAttribute('readOnly', true);
+        }
+    }
+
+    let children = overlay.childNodes;
+    if(children && children.length) {
+        children.forEach((item) => {
+            setOverlayInteractive(item, flag);
+        });
+    }
 }
 
 export function setOverlayPosition(target, overlay) {

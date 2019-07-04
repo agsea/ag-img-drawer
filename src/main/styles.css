@@ -100,3 +100,54 @@
     cursor: -moz-grabbing;
     cursor: grabbing;
 }
+
+/* 消息提示 */
+.ag-msg {
+    position: fixed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    top: 30px;
+    width: 100%;
+    padding: 15px;
+    transition: transform 0.4s ease, opacity 0.4s ease;
+    transform: translateY(calc(-100% - 31px));
+    opacity: 0;
+    z-index: 10;
+}
+.ag-msg.show {
+    transform: translateY(0px);
+    opacity: 1;
+}
+.ag-msg .wrapper {
+    display: inline-flex;
+    align-items: center;
+    max-width: 300px;
+    padding: 10px 20px;
+    font-size: 15px;
+    border-radius: 4px;
+    color: #606266;
+    background-color: #edf2f7;
+    border: 1px solid #ebeef5;
+}
+.ag-msg .wrapper .icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+.ag-msg.info .wrapper .icon {
+    background: url("./images/icon-tip.png") no-repeat 0 0;
+    background-size: 20px;
+}
+.ag-msg.success .wrapper .icon {
+    background: url("./images/icon-success.png") no-repeat 0 0;
+    background-size: 20px;
+}
+.ag-msg.warning .wrapper .icon {
+    background: url("./images/icon-warning.png") no-repeat 0 0;
+    background-size: 20px;
+}
+.ag-msg.error .wrapper .icon {
+    background: url("./images/icon-fail.png") no-repeat 0 0;
+    background-size: 20px;
+}

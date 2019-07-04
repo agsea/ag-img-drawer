@@ -3,15 +3,14 @@
  * Created by aegean on 2017/5/19 0019.
  */
 
-// TODO（2-019-5-30）: 悬浮层在缩放对象时能跟随移动，目前暂时实现为拖拽时隐层悬浮层，缩放结束后依据悬浮层显示策略设置悬浮层显隐状态
-
+// TODO（2019-05-30）: 悬浮层在缩放对象时能跟随移动，目前暂时实现为拖拽时隐层悬浮层，缩放结束后依据悬浮层显示策略设置悬浮层显隐状态
+// TODO（2019-07-02）: [问题]，绘制的多边形稍大一些时，放大画布达到一定程度会使其隐藏
 
 import DrawerEvt from './drawer-event';
 import DrawerMode from './drawer-mode';
 import {MODE_CURSOR} from './mode-cursor';
 import {
     AG_TYPE,
-    isAgType,
     AG_SOURCE,
     getDrawBoundary,
     limitDrawBoundary,
@@ -21,17 +20,28 @@ import {
     setOverlayInteractive,
     setOverlayPosition,
     setCanvasInteractive,
-    getShape,
+    getWkt,
+    getPolygonWkt,
     mergeObject,
     setObjectMoveLock,
     calcSWByScale,
-    setStrokeWidthByScale
+    setStrokeWidthByScale,
+    calcBoundingRectPoit,
+    scaleImgToSize,
+    MOUSE_POINT,
+    convertObjToArr,
+    parsePolygonFromWkt
 } from './drawer-utils';
 import {
     ASSIST_LINE_MODE,
     drawAssistLine,
     removeAssistLine,
-    updateAssistLine
+    updateAssistLine,
+    drawPolygonAssistLine,
+    removePolygonAssistLine,
+    drawPolygonAnchor,
+    updatePolygonAnchor,
+    removePolygonAnchor
 } from './drawer-assist';
 
 (function (global) {
@@ -87,11 +97,12 @@ import {
         }
     };
 
-    // 绘制类型：Rect、Circle、Circle
+    // 绘制类型：rect、ellipse、text、polygon
     let DRAWER_TYPE = {
         rect: 'Rect',
         ellipse: 'Ellipse',
-        text: 'Text'
+        text: 'Text',
+        polygon: 'Polygon'
     };
 
     // 内部变量
@@ -100,12 +111,19 @@ import {
     let _clipboard = null;
     let _outerPasteTimes = 1;
     let _hoverOnCanvas = false;
-    let _mousePosition = {
-        move: {x: 0, y: 0}
-    };
 
     // 当前绘图器的引用
     let _curDrawer = null;
+
+    // 缩放限制
+    let zoomLimit = {
+        min: 0.1,
+        max: 30
+    };
+
+    let tmpPolyGeoPoints = [];
+    let ifAddNewPolyPoint = false;
+    let drawPolygonTimer = null;
 
 
     //--------------------------------------------------------
@@ -140,7 +158,6 @@ import {
         this.dragDirectly = true;  //是否可以使用鼠标左键直接拖拽
         this.selectedItems = null;
         this.editDirectly = false;  //仅在编辑模式有效：是否可以直接对画布上的对象编辑，如果为false则需摁住ctrl键操作对象
-        // this.backgroundUrl = null;
         this.backgroundImage = null;
         this.backgroundImageSize = [0, 0];
         this.backgroundImageScale = [1, 1];
@@ -152,7 +169,7 @@ import {
             borderWidth: 1.5,
             _borderWidth: 2,
             backColor: 'rgba(0, 0, 0, 0)',   // 'rgba(0, 0, 0, 0.24)'
-            backColorHover: 'rgba(200, 165, 89, 0.4)',
+            backColorHover: 'rgba(200, 165, 89, 0.3)',
             backColorActive: 'rgba(200, 165, 89, 0.6)',
             fontFamily: 'Microsoft YaHei',
             fontSize: 14,
@@ -166,7 +183,12 @@ import {
             linethrough: false,
             overline: false,
             strokeColor: '#fff',
-            strokeWidth: 0
+            strokeWidth: 0,
+            anchorSize: 10,
+            anchorShape: 'circle',  // 'rect' or 'circle'
+            anchorColor: '#51ef75',
+            anchorStrokeWidth: 2,
+            anchorStrokeColor: '#f5f5f5'
         };
         this._drawIndex = 0;
         this._originCoord = [0, 0]; // 定位坐标原点，取初始化后图片左上角点
@@ -176,6 +198,11 @@ import {
             space: false
         };
         this.assistLineMode = 0;
+        this.isDrawingBasic = false;
+        this.isDrawingPolyGeo = false;
+        this.isDrawingGroupPolyGeo = false;
+        this.groupPolyGeoIndex = 0;
+        this._groupPolygon = [];
         _initCanvasContent(this, option);
     };
 
@@ -254,7 +281,7 @@ import {
                 drawer._originCoord = _calcOringinCoordinate(opt.width, opt.height, imgSize[0], imgSize[1]);
                 drawer.resetSize();
             }else {
-                _scaleImgToSize(bImg, drawer.backgroundImageSize);
+                scaleImgToSize(bImg, drawer.backgroundImageSize);
             }
             drawer.backgroundImageScale = {
                 x: bImg.scaleX,
@@ -284,7 +311,7 @@ import {
         let canvas = self.canvas;
 
         _setGlobalObjectProp();
-        _setGlobalControlStyle();
+        _setGlobalControlStyle(drawer.drawStyle);
 
         //鼠标事件
         canvas.on('mouse:down', function (evt) {
@@ -301,17 +328,65 @@ import {
                 }
                 if(ifCanDraw) {
                     hit = true;
-                    self.drawingItem = null;
                     self.drawStyle._borderWidth = calcSWByScale(self.drawStyle.borderWidth, self.zoom);
                     startX = evt.absolutePointer.x;
                     startY = evt.absolutePointer.y;
 
-                    if(self.mode === DrawerMode.draw && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown &&
-                        !hasSelect) {
-                        drawAssistLine(self, evt.absolutePointer);
+                    if(self.mode === DrawerMode.draw) {
+                        if(self.assistLineMode === ASSIST_LINE_MODE.onMouseDown &&
+                            !hasSelect) {
+                            drawAssistLine(self, evt.absolutePointer);
+                        }
+
+                        if(!self.keyStatus.ctrl && !hasSelect && self.drawType === DRAWER_TYPE.polygon) {
+                            self.isDrawingPolyGeo = true;
+
+                            if(drawPolygonTimer) clearTimeout(drawPolygonTimer);
+                            drawPolygonTimer = setTimeout(() => {
+                                let clickP = {
+                                    x: evt.absolutePointer.x,
+                                    y: evt.absolutePointer.y
+                                };
+                                tmpPolyGeoPoints.pop();
+                                tmpPolyGeoPoints.push(clickP);
+                                ifAddNewPolyPoint = false;
+                            }, 250);
+                        }else {
+                            self.drawingItem = null;
+                        }
                     }
+
                     self.refresh();
                 }
+            }
+        });
+        canvas.on('mouse:dblclick', function (evt) {
+            // 双节结束多边形绘制
+            if(tmpPolyGeoPoints.length >= 3) {
+                if(drawPolygonTimer) clearTimeout(drawPolygonTimer);
+                tmpPolyGeoPoints = [];
+                self.isDrawingPolyGeo = false;
+
+                self.drawingItem.set({
+                    strokeWidth: self.drawStyle._borderWidth,
+                    fill: self.drawStyle.backColor
+                });
+                // 如果是绘制多边形组模式
+
+                if(self.isDrawingGroupPolyGeo) {
+                    self.drawingItem._groupPolygonIndex = self.groupPolyGeoIndex;
+                    self._groupPolygon.push(self.drawingItem);
+                    self.drawingItem._groupPolygon = self._groupPolygon;
+                }
+                _bindEvtForObject(self.drawingItem, self);
+
+                _setForNewObject(self.drawingItem, self);
+                option.afterAdd(self.drawingItem);
+                option.afterDraw(self.drawingItem);
+                removePolygonAssistLine(self);
+                drawPolygonAnchor(self, self.drawingItem);
+                self.drawingItem = null;
+                self.refresh();
             }
         });
         canvas.on('mouse:move', function (evt) {
@@ -337,92 +412,131 @@ import {
                     drawAssistLine(self, evt.absolutePointer);
                 }
 
-                if (hit && self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
-                    self.isDrawing = true;
+                if(self.drawable && self.mode === DrawerMode.draw && !hasSelect) {
                     endX = evt.absolutePointer.x;
                     endY = evt.absolutePointer.y;
-
-                    // 修正至图片范围内
+                    // 修正坐标至图片范围内
                     if (self.option.lockBoundary) {
                         endX = limitDrawBoundary(endX, self._originCoord[0], self.backgroundImageSize[0]);
                         endY = limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
                     }
 
-                    if (self.drawingItem) {
-                        canvas.remove(self.drawingItem);
-                    }
+                    if(self.drawType === DRAWER_TYPE.polygon && tmpPolyGeoPoints.length > 0) {
+                        let mousePoint = {
+                            x: evt.absolutePointer.x,
+                            y: evt.absolutePointer.y
+                        };
+                        // 多边形绘制
+                        if (self.drawingItem) {
+                            canvas.remove(self.drawingItem);
+                        }
 
-                    tempLeft = (endX > startX) ? startX : endX;
-                    tempTop = (endY > startY) ? startY : endY;
+                        if(!ifAddNewPolyPoint) {
+                            ifAddNewPolyPoint = true;
+                            tmpPolyGeoPoints.push(mousePoint);
+                        }else {
+                            tmpPolyGeoPoints.pop();
+                            tmpPolyGeoPoints.push(mousePoint);
+                        }
 
-                    //判断绘制类型
-                    if (self.drawType === DRAWER_TYPE.rect) {
-                        tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
-                        tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
-                        tempWidth = tempWidth < 0 ? 0 : tempWidth;
-                        tempHeight = tempHeight < 0 ? 0 : tempHeight;
+                        drawPolygonAssistLine(self, tmpPolyGeoPoints,
+                            fabric.util.object.clone(mousePoint));
 
-                        self.drawingItem = new fabric.Rect({
-                            width: tempWidth,
-                            height: tempHeight,
-                            left: tempLeft,
-                            top: tempTop,
-                            fill: self.drawStyle.backColor,
+                        let originPos = calcBoundingRectPoit(tmpPolyGeoPoints);
+                        self.drawingItem = new fabric.Polygon(tmpPolyGeoPoints, {
+                            left: originPos.x,
+                            top: originPos.y,
+                            strokeWidth: 0,
                             stroke: self.drawStyle.borderColor,
-                            strokeWidth: self.drawStyle._borderWidth,
-                            originStrokeWidth: self.drawStyle.borderWidth
+                            fill: self.drawStyle.backColorHover,
+                            objectCaching: false,
+                            hasControls: false,
+                            hasBorders: false,
+                            // selectable: false,
+                            // evented: false,
+                            agSource: AG_SOURCE.byDraw
                         });
-                    } else if (self.drawType === DRAWER_TYPE.ellipse) {
-                        tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
-                        tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
-                        tempWidth = tempWidth < 0 ? 0 : tempWidth;
-                        tempHeight = tempHeight < 0 ? 0 : tempHeight;
+                        self.canvas.add(self.drawingItem);
+                        _bindEvtForObject(self.drawingItem, self);
+                    }else if(hit && self.drawType !== DRAWER_TYPE.polygon) {
+                        // 基本几何形状绘制
+                        self.isDrawingBasic = true;
 
-                        self.drawingItem = new fabric.Ellipse({
-                            rx: tempWidth,
-                            ry: tempHeight,
-                            left: tempLeft,
-                            top: tempTop,
-                            fill: self.drawStyle.backColor,
-                            stroke: self.drawStyle.borderColor,
-                            strokeWidth: self.drawStyle._borderWidth,
-                            originStrokeWidth: self.drawStyle.borderWidth
-                        });
-                    } else if (self.drawType === DRAWER_TYPE.text) {
-                        self.drawingItem = new fabric.IText('', {
-                            width: Math.abs(endX - startX),
-                            left: tempLeft,
-                            top: tempTop,
-                            fontFamily: self.drawStyle.fontFamily,
-                            fontSize: self.drawStyle.fontSize + 2,
-                            fill: self.drawStyle.fontColor,
-                            fontWeight: self.drawStyle.fontWeight,
-                            fontStyle: self.drawStyle.fontStyle,
-                            underline: self.drawStyle.underline,
-                            linethrough: self.drawStyle.linethrough,
-                            overline: self.drawStyle.overline,
-                            stroke: self.drawStyle.strokeColor,
-                            strokeWidth: self.drawStyle.strokeWidth,
-                            charSpacing: 1,
-                            editingBorderColor: '#0099FF',
-                            selectionColor: 'rgba(255, 204, 0, 0.5)'
-                        });
+                        if (self.drawingItem) {
+                            canvas.remove(self.drawingItem);
+                        }
+
+                        tempLeft = (endX > startX) ? startX : endX;
+                        tempTop = (endY > startY) ? startY : endY;
+
+                        //判断绘制类型
+                        if (self.drawType === DRAWER_TYPE.rect) {
+                            tempWidth = Math.abs(endX - startX) - self.drawStyle._borderWidth;
+                            tempHeight = Math.abs(endY - startY) - self.drawStyle._borderWidth;
+                            tempWidth = tempWidth < 0 ? 0 : tempWidth;
+                            tempHeight = tempHeight < 0 ? 0 : tempHeight;
+
+                            self.drawingItem = new fabric.Rect({
+                                width: tempWidth,
+                                height: tempHeight,
+                                left: tempLeft,
+                                top: tempTop,
+                                fill: self.drawStyle.backColor,
+                                stroke: self.drawStyle.borderColor,
+                                strokeWidth: self.drawStyle._borderWidth,
+                                originStrokeWidth: self.drawStyle.borderWidth
+                            });
+                        } else if (self.drawType === DRAWER_TYPE.ellipse) {
+                            tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                            tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                            tempWidth = tempWidth < 0 ? 0 : tempWidth;
+                            tempHeight = tempHeight < 0 ? 0 : tempHeight;
+
+                            self.drawingItem = new fabric.Ellipse({
+                                rx: tempWidth,
+                                ry: tempHeight,
+                                left: tempLeft,
+                                top: tempTop,
+                                fill: self.drawStyle.backColor,
+                                stroke: self.drawStyle.borderColor,
+                                strokeWidth: self.drawStyle._borderWidth,
+                                originStrokeWidth: self.drawStyle.borderWidth
+                            });
+                        } else if (self.drawType === DRAWER_TYPE.text) {
+                            self.drawingItem = new fabric.IText('', {
+                                width: Math.abs(endX - startX),
+                                left: tempLeft,
+                                top: tempTop,
+                                fontFamily: self.drawStyle.fontFamily,
+                                fontSize: self.drawStyle.fontSize + 2,
+                                fill: self.drawStyle.fontColor,
+                                fontWeight: self.drawStyle.fontWeight,
+                                fontStyle: self.drawStyle.fontStyle,
+                                underline: self.drawStyle.underline,
+                                linethrough: self.drawStyle.linethrough,
+                                overline: self.drawStyle.overline,
+                                stroke: self.drawStyle.strokeColor,
+                                strokeWidth: self.drawStyle.strokeWidth,
+                                charSpacing: 1,
+                                editingBorderColor: '#0099FF',
+                                selectionColor: 'rgba(255, 204, 0, 0.5)'
+                            });
+                        }
+
+                        self.drawingItem.isNew = true;
+                        self.canvas.add(self.drawingItem);
+                        _bindEvtForObject(self.drawingItem, self);
                     }
-                    self.drawingItem.isNew = true;
-                    self.canvas.add(self.drawingItem);
-                    _bindEvtForObject(self.drawingItem, self);
-
                     if(!self.keyStatus.space && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown) {
                         drawAssistLine(self, evt.absolutePointer);
                     }
-
                     self.refresh();
                 }
             }
 
             if (_hoverOnCanvas) {
-                _mousePosition.move.x = evt.absolutePointer.x;
-                _mousePosition.move.y = evt.absolutePointer.y;
+                MOUSE_POINT.x = evt.absolutePointer.x;
+                MOUSE_POINT.y = evt.absolutePointer.y;
             }
         });
         canvas.on('mouse:up', function(evt) {
@@ -431,8 +545,10 @@ import {
             setObjectMoveLock(self.getObjects(), false);
 
             hit = false;
-            self.isDrawing = false;
-            if (self.drawingItem) {
+            self.isDrawingBasic = false;
+
+            if (self.mode === DrawerMode.draw && self.drawType !== DRAWER_TYPE.polygon &&
+                self.drawingItem) {
                 if (self.drawingItem.width < 3 && self.drawingItem.height < 3) {
                     canvas.remove(self.drawingItem);
                 } else {
@@ -463,10 +579,10 @@ import {
         canvas.on('mouse:out', function (evt) {
             this.isDragging = false;
             _hoverOnCanvas = false;
-            _mousePosition.move.x = 0;
-            _mousePosition.move.y = 0;
+            MOUSE_POINT.x = 0;
+            MOUSE_POINT.y = 0;
 
-            if(/*!self._withinBackImg && */!self.isDrawing) {
+            if(/*!self._withinBackImg && */!self.isDrawingBasic) {
                 removeAssistLine(self);
             }
         });
@@ -492,11 +608,11 @@ import {
                 }else {
                     self._pointerObjIndex--;
                 }
-            }else if(!self.isDrawing) {
+            }else if(!self.isDrawingBasic) {
                 let zoom = self.zoom;
                 zoom = zoom - delta / 200;
-                if (zoom > 30) zoom = 30;
-                if (zoom < 0.1) zoom = 0.1;
+                if (zoom > zoomLimit.max) zoom = 30;
+                if (zoom < zoomLimit.min) zoom = 0.1;
                 _setZoomPercent(self.zoomPercentEle, self.zoom, zoom);
                 self.setZoom(zoom, {x: evt.e.offsetX, y: evt.e.offsetY});
             }
@@ -509,13 +625,15 @@ import {
 
         //对象事件
         canvas.on('object:added', function (evt) {
-            if (self.drawingItem) {
+            if (self.drawingItem || !_isInteractiveAgType(evt.target)) {
                 return;
             }
             _setForNewObject(evt.target, self);
         });
         canvas.on('object:modified', function (evt) {
             let target = evt.target;
+            if(!_isInteractiveAgType(target)) return;
+
             let isSingle = target.type !== 'activeSelection' && target.type !== 'group';
             target.modified = true;
             option.afterModify(target, isSingle);
@@ -553,16 +671,20 @@ import {
             _setObjectInteractive(evt.target, true, self);
 
             let aciveObjs = self.getSelection();
-            option.afterSelect(aciveObjs);
-            self.highlightObjects(aciveObjs);
+            if(aciveObjs.length) {
+                option.afterSelect(aciveObjs);
+                self.highlightObjects(aciveObjs);
+            }
         });
         canvas.on('selection:updated', function (evt) {
             self.selectedItems = evt.target;
             _setObjectInteractive(evt.target, true, self);
 
             let aciveObjs = self.getSelection();
-            option.afterSelect(aciveObjs);
-            self.highlightObjects(aciveObjs);
+            if(aciveObjs.length) {
+                option.afterSelect(aciveObjs);
+                self.highlightObjects(aciveObjs);
+            }
         });
         canvas.on('before:selection:cleared', function (evt) {
             self.darkenObjects(self.getSelection());
@@ -667,7 +789,7 @@ import {
      * @param object
      */
     global.AgImgDrawer.prototype.add = function (object) {
-        console.warn('The method [addObject] has been deprecated, please consider using [addObject] !');
+        console.warn('The method [add] has been deprecated, please consider using [addObject] !');
         this.addObject(object);
     };
 
@@ -676,7 +798,8 @@ import {
      * @param object
      */
     global.AgImgDrawer.prototype.addObject = function (object) {
-        if(object.agSource !== AG_SOURCE.byDraw) {
+        let isPolygon = object.isType('polygon');
+        if(object.agSource !== AG_SOURCE.byDraw && !isPolygon) {
             // 添加偏移
             object.set({
                 left: object.left + this._originCoord[0],
@@ -686,6 +809,11 @@ import {
         }
         this.canvas.add(object);
         object._labelObject && this.canvas.add(object._labelObject);
+
+        // 多边形：绘制锚点
+        if(isPolygon) {
+            drawPolygonAnchor(this, object);
+        }
 
         // 设置对象可交互性
         this.setObjectInteractive(object, object.agInteractive);
@@ -763,13 +891,20 @@ import {
      */
     global.AgImgDrawer.prototype.getObjects = function (exclude) {
         let result = [];
+        let polygonMap = {};
         exclude = mergeObject({}, exclude);
         this.canvas.forEachObject(function (obj, index, objs) {
             if (!exclude[obj.type] && _isInteractiveAgType(obj)) {
-                result.push(obj);
+                if(obj._groupPolygonIndex) {
+                    if(!polygonMap[obj._groupPolygonIndex]) {
+                        polygonMap[obj._groupPolygonIndex] = obj;
+                    }
+                }else {
+                    result.push(obj);
+                }
             }
         });
-        return result;
+        return result.concat(convertObjToArr(polygonMap));
     };
 
     /**
@@ -837,7 +972,11 @@ import {
      */
     global.AgImgDrawer.prototype.serializeObject = function (object, imgScaleXY) {
         imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
-        return getShape(object, this._originCoord, imgScaleXY);
+        if(object.isType('polygon')) {
+            return getPolygonWkt(object, this._originCoord, imgScaleXY, this.zoom);
+        }else {
+            return getWkt(object, this._originCoord, imgScaleXY);
+        }
     };
 
     /**
@@ -957,6 +1096,9 @@ import {
         objs.forEach((item) => {
             setStrokeWidthByScale(item, zoom);
             updateObjectOverlays(item);
+            if(item.isType('polygon')) {
+                updatePolygonAnchor(item);
+            }
         });
         this.refresh();
         this.option.afterZoom();
@@ -966,26 +1108,22 @@ import {
      * 放大
      */
     global.AgImgDrawer.prototype.zoomIn = function () {
-        let self = this;
-        let container = document.getElementById(self.containerId);
+        if (this.zoom > zoomLimit.max) return;
+        let container = document.getElementById(this.containerId);
         let conParent = container.parentNode;
         let pointer = _getEleCenterPoint(conParent);
-        // AgImgLarger.zoomIn('myDrawer', pointer, function (newWidth, newHeight, scale) {
-        //     self.setSize(newWidth, newHeight, scale);
-        // });
+        this.setZoom(this.zoom + 0.1, pointer);
     };
 
     /**
      * 缩小
      */
     global.AgImgDrawer.prototype.zoomOut = function () {
-        let self = this;
-        let container = document.getElementById(self.containerId);
+        if (this.zoom < zoomLimit.min) return;
+        let container = document.getElementById(this.containerId);
         let conParent = container.parentNode;
         let pointer = _getEleCenterPoint(conParent);
-        // AgImgLarger.zoomOut('myDrawer', pointer, function (newWidth, newHeight, scale) {
-        //     self.setSize(newWidth, newHeight, scale);
-        // });
+        this.setZoom(this.zoom - 0.1, pointer);
     };
 
     /**
@@ -1058,7 +1196,7 @@ import {
      * @param includeActiveObj {boolean} - 当前设置是否对当前选中对象生效
      */
     global.AgImgDrawer.prototype.setExistObjectInteractive = function (flag, includeActiveObj) {
-        includeActiveObj = includeActiveObj === false ? false : true;
+        includeActiveObj = includeActiveObj !== false;
         if (flag === true) {
             this.canvas.selection = true;
             this.canvas.forEachObject(function (obj, index, objs) {
@@ -1260,7 +1398,7 @@ import {
                 } else {
                     object.set({
                         stroke: self.drawStyle.borderColorActive,
-                        backgroundColor: self.drawStyle.backColorActive
+                        fill: self.drawStyle.backColorActive
                     });
                     object.moveTo(self._drawIndex + 1);
                     let labelObj = object._labelObject;
@@ -1309,7 +1447,7 @@ import {
                 } else {
                     object.set({
                         stroke: self.drawStyle.borderColor,
-                        backgroundColor: self.drawStyle.backColor
+                        fill: self.drawStyle.backColor
                     });
                     object.moveTo(object.drawIndex);
                     let labelObj = object._labelObject;
@@ -1329,8 +1467,8 @@ import {
     };
 
     /**
-     *
-     * @param {高亮所有对象或取消所有高亮对象} flag
+     * 高亮所有对象或取消所有高亮对象
+     * @param flag
      */
     global.AgImgDrawer.prototype.lightOrDarkAllObject = function (flag) {
         if (flag) {
@@ -1417,6 +1555,27 @@ import {
         }
     };
 
+    /**
+     * 取消当前正在进行的绘制操作
+     */
+    global.AgImgDrawer.prototype.cancelDrawing = function () {
+        if(this.isDrawingPolyGeo && this.drawingItem) {
+            removePolygonAssistLine(this);
+            this.canvas.remove(this.drawingItem);
+            this.isDrawingPolyGeo = false;
+            tmpPolyGeoPoints = [];
+            this.refresh();
+        }
+    };
+
+    /**
+     * 解析多边形对象
+     */
+    global.AgImgDrawer.prototype.parsePolygon = function (wkt, imgScaleXY) {
+        imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
+        return parsePolygonFromWkt(wkt, this, this._originCoord, imgScaleXY);
+    };
+
 
     //--------------------------------------------------------
     // 内部方法
@@ -1470,12 +1629,12 @@ import {
      * 设置全局控制框样式
      * @private
      */
-    function _setGlobalControlStyle() {
+    function _setGlobalControlStyle(drawStyle) {
         fabric.Object.prototype.transparentCorners = false;
-        fabric.Object.prototype.cornerSize = 7;
-        fabric.Object.prototype.cornerStyle = 'circle';
-        fabric.Object.prototype.cornerColor = '#51ef75';
-        fabric.Object.prototype.cornerStrokeColor = '#f5f5f5';
+        fabric.Object.prototype.cornerSize = drawStyle.anchorSize;
+        fabric.Object.prototype.cornerStyle = drawStyle.anchorShape;
+        fabric.Object.prototype.cornerColor = drawStyle.anchorColor;
+        fabric.Object.prototype.cornerStrokeColor = drawStyle.anchorStrokeColor;
         fabric.Object.prototype.hasBorders = false;
 
         fabric.Object.prototype.setControlVisible('ml', false);
@@ -1504,12 +1663,16 @@ import {
             for (let i = 0; i < innerObjs.length; i++) {
                 _recordOriginProp(innerObjs[i], opts);
             }
-        } else if (object.isType('rect') || object.isType('ellipse')) {
-            object.originStrokeWidth = opts.strokeWidth;
-            object.drawIndex = opts.drawIndex;
-        } else if (object.isType('text') || object.isType('i-text')) {
-            object.originFontSize = opts.fontSize;
-            object.drawIndex = opts.drawIndex;
+        } else {
+            for(let key in opts) {
+                object[key] = opts[key];
+            }
+            // if (object.isType('text') || object.isType('i-text')) {
+            //     object.originFontSize = opts.fontSize;
+            // }else {
+            //     object.originStrokeWidth = opts.strokeWidth;
+            // }
+            // object.drawIndex = opts.drawIndex;
         }
     }
 
@@ -1568,13 +1731,8 @@ import {
         }
 
         let newSize = [nOImgWidth, nOImgHeight];
-        _scaleImgToSize(oImg, newSize);
+        scaleImgToSize(oImg, newSize);
         return newSize;
-    }
-
-    function _scaleImgToSize(oImg, tarSize) {
-        oImg.scaleX = tarSize[0] / oImg.width;
-        oImg.scaleY = tarSize[1] / oImg.height;
     }
 
     /**
@@ -1607,6 +1765,7 @@ import {
     }
 
     function _bindEvtForObject(target, _this) {
+        if(!_isInteractiveAgType(target)) return;
         // 初始可操作性状态
         _setObjectInteractive(target, null, _this);
 
@@ -1637,7 +1796,7 @@ import {
                 }
 
                 target.set({
-                    backgroundColor: _this.drawStyle.backColorHover
+                    fill: _this.drawStyle.backColorHover
                 });
 
                 _this.refresh();
@@ -1654,7 +1813,7 @@ import {
                 target.set({
                     hoverCursor: MODE_CURSOR.auto,
                     moveCursor: MODE_CURSOR.auto,
-                    backgroundColor: _this.drawStyle.backColor
+                    fill: _this.drawStyle.backColor
                 });
                 _this.refresh();
             }
@@ -1677,6 +1836,10 @@ import {
             _this.highlightObjects([target]);
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true);
+
+            if(target.isType('polygon')) {
+                // drawPolygonAnchor(_this, target);
+            }
         });
         target.on('deselected', function (evt) {
             if (lObj) {
@@ -1692,10 +1855,13 @@ import {
                 }
             }
             target.selected = false;
-            target.backgroundColor = _this.drawStyle.backColor;
             _this.darkenObjects([target]);
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false);
+
+            if(target.isType('polygon')) {
+                // removePolygonAnchor(_this, target);
+            }
             _this.option.afterObjectDeSelect(target);
         });
         target.on('removed', function (evt) {
@@ -1704,6 +1870,9 @@ import {
         });
         target.on('moving', function (evt) {
             target.moveCursor = MODE_CURSOR.move;
+            if(target.isType('polygon')) {
+                updatePolygonAnchor(target);
+            }
         });
     }
 
@@ -1855,8 +2024,8 @@ import {
                 tmpLabel = tmp._labelObject;
 
                 if (_hoverOnCanvas) {
-                    tarX = _mousePosition.move.x - coord[0];
-                    tarY = _mousePosition.move.y - coord[1];
+                    tarX = MOUSE_POINT.x - coord[0];
+                    tarY = MOUSE_POINT.y - coord[1];
                 } else {
                     tarX = tmp.left - coord[0];
                     tarY = tmp.top - coord[1];
@@ -1882,15 +2051,19 @@ import {
     }
 
     function _setForNewObject(target, drawer) {
+        if(!_isInteractiveAgType(target)) return;
+
         target.lockBoundary = drawer.option.lockBoundary;
         target.agBoundary = getDrawBoundary(drawer._originCoord, drawer.backgroundImageSize);
         target.canvasWidth = drawer.originWidth;
         target.canvasHeight = drawer.originHeight;
+        target.drawIndex = ++drawer._drawIndex
 
         _recordOriginProp(target, {
-            strokeWidth: drawer.drawStyle.borderWidth,
-            fontSize: drawer.drawStyle.fontSize,
-            drawIndex: drawer._drawIndex++
+            originLeft: target.left,
+            originTop: target.top,
+            originStrokeWidth: drawer.drawStyle.borderWidth,
+            originFontSize: drawer.drawStyle.fontSize
         });
     }
 
@@ -1947,8 +2120,10 @@ import {
     function _getPointerObjects(fCanvas, objects, evt) {
         let tarObjs = [];
         objects.forEach((item) => {
-            if(fCanvas.containsPoint(evt, item)) {
-                tarObjs.push(item);
+            if(item instanceof fabric.Object) {
+                if(fCanvas.containsPoint(evt, item)) {
+                    tarObjs.push(item);
+                }
             }
         });
         return tarObjs;

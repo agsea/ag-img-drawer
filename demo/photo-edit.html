@@ -38,14 +38,17 @@
                         <div id="btns-container" class="btns-container">
                             <div class="btn-group">
                                 <label class="label-text">绘制类型：</label>
-                                <button class="side-btn" onclick="drawRect()">
+                                <button class="side-btn active" onclick="drawRect()">
                                     <span class="icon-rect">矩形</span>
                                 </button>
-                                <button class="side-btn active" onclick="drawEclipse()">
+                                <button class="side-btn" onclick="drawEclipse()">
                                     <span class="icon-rect">椭圆</span>
                                 </button>
                                 <button class="side-btn" onclick="drawLabel()">
                                     <span class="icon-label">标签</span>
+                                </button>
+                                <button class="side-btn" onclick="drawGeometry()">
+                                    <span class="icon-rect">多边形</span>
                                 </button>
                             </div>
                             <div>
@@ -249,7 +252,7 @@
     <!--<script type="text/javascript" src="../assets/zTree_v3/js/jquery.ztree.excheck.js"></script>-->
     <script type="text/javascript" src="assets/zTree_v3/js/jquery.ztree.exedit.js"></script>
 
-    <script src="../dist/3.0.0/ag-imgdrawer-3.0.0.min.js"></script>
+    <script src="../dist/3.0.0/ag-imgdrawer-3.0.0.js"></script>
     <script src="object-tree.js"></script>
     <script src="photo-edit.js"></script>
 </body>

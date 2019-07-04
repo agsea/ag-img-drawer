@@ -21,6 +21,9 @@ import {
 import {
     removeAssistLine
 } from './drawer-assist';
+import {
+    showMessgae
+} from './drawer-message';
 
 let curDrawer;
 let ctrlKey, spaceKey;
@@ -178,6 +181,7 @@ function keydownHandler(evt) {
         }
     } else if (keyCode === 27) {  //ESC键
         self.cancelSelection();
+        self.cancelDrawing();
         self.option.afterKeydownEsc();
     }
 }
@@ -191,9 +195,27 @@ function keyupHandler(evt) {
         if (self.mode === DrawerMode.draw || (self.mode === DrawerMode.edit && !self.editDirectly)) {
             self.setExistObjectInteractive(false, false);
         }
-    }else if (keyCode === 32) {
+    } else if (keyCode === 32) {
         spaceKey = curDrawer.keyStatus.space = false;
         _toggleDragMode(self, false);
+    } else if (keyCode === 71) {    // G键
+        if(!self.isDrawingPolyGeo) {
+            if(self.isDrawingGroupPolyGeo) {
+                showMessgae('退出多边形组绘制模式', {
+                    type: 'info',
+                    duration: 1500
+                });
+                self.isDrawingGroupPolyGeo = false;
+            }else {
+                showMessgae('进入多边形组绘制模式', {
+                    type: 'warning',
+                    duration: 1500
+                });
+                self.isDrawingGroupPolyGeo = true;
+                self.groupPolyGeoIndex++;
+            }
+            self._groupPolygon = [];
+        }
     }
 }
 

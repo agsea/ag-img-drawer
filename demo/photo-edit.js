@@ -21,7 +21,10 @@ $().ready(function() {
             drawer.setMode('draw');
             drawer.setEditDirectly(true);
             drawRects();
+            drawPolygons();
             // drawTest();
+
+            drawer.drawType = 'Polygon';
         },
         afterAdd: function(object) {
             // console.info('添加', object);
@@ -75,7 +78,7 @@ $().ready(function() {
             // console.info('esc');
         },
         afterZoom: function () {
-            console.info('zoom');
+            // console.info('zoom');
         }
     });
     // drawer.drawType = 'Ellipse';
@@ -241,6 +244,9 @@ function drawEclipse() {
 function drawLabel() {
     drawer.drawType = 'Text';
 }
+function drawGeometry() {
+    drawer.drawType = 'Polygon';
+}
 var groupIndex = 0;
 function deleteDraw() {
     //drawer.deleteSelection();
@@ -295,7 +301,7 @@ function serializeObjects() {
 var groupCounter = 0;
 var groupObjectMap = {};
 function drawRects() {
-    for(var i = 0; i < 4; i++) {
+    for(var i = 0; i < 2; i++) {
         groupCounter++;
         var agRect = drawer.createRect({
             width: 150, //randomFrom(10, 300),
@@ -330,8 +336,36 @@ function drawRects() {
         // agRect.set('agTestProp', 666);
         // drawer.addObject(agRect2);
         // groupObjectMap['groupObj' + 2] = agRect2;
-
     }
+
+    // var poly = new fabric.Polyline([
+    //     { x: 10, y: 10 },
+    //     { x: 50, y: 30 },
+    //     { x: 40, y: 70 },
+    //     { x: 60, y: 50 },
+    //     { x: 100, y: 150 },
+    //     { x: 40, y: 100 }
+    // ], {
+    //     stroke: 'red',
+    //     left: 100,
+    //     top: 100
+    // });
+    // var group = new fabric.Group([ poly ], {
+    //     left: 150,
+    //     top: 100,
+    //     angle: -10
+    // });
+    // drawer.addObject(group);
+}
+
+function drawPolygons() {
+    var wkt1 = 'MULTIPOLYGON(((3136.51 1044.40,2763.60 2322.97,3489.46 2862.38,4468.37 2975.58,4861.27 1916.76,4448.39 1337.40,3136.51 1044.40)))';
+    var wkt2 = 'MULTIPOLYGON(((1752.38 2206.35,1479.37 3019.05,2393.65 3330.16,2780.95 2326.98,1752.38 2206.35)),((3733.33 2384.13,3384.13 3165.08,4895.24 2676.19,3733.33 2384.13)))';
+    var wkt3 = 'MULTIPOLYGON(((2628.57 1628.57,2298.41 2980.95,4038.10 3285.71,5047.62 2904.76,5085.71 1812.70,4768.25 555.56,3822.22 504.76,3104.76 555.56,2628.57 1628.57)))';
+    var objs = drawer.parsePolygon(wkt3);
+    objs.forEach((obj) => {
+        drawer.addObject(obj);
+    });
 }
 
 /**
@@ -376,7 +410,7 @@ function dark() {
 }
 var locateIndex = 0, locateIndexBefore;
 function locate() {
-    locateIndex = locateIndex > 3 ? 0 : locateIndex;
+    locateIndex = locateIndex > 1 ? 0 : locateIndex;
 
     drawer.locate(groupObjectMap['groupObj' + locateIndex]);
 

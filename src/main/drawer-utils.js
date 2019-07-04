@@ -17,6 +17,11 @@ export const AG_SOURCE = {
     byDraw: 'draw'
 };
 
+export const MOUSE_POINT = {
+    x: 0,
+    y: 0
+};
+
 // 检测是否是定义对象类型
 export function isAgType(type) {
     for(let key in AG_TYPE) {
@@ -230,7 +235,7 @@ export function setCanvasInteractive(fCanvas, mode) {
  * @param imgRatioXY
  * @returns {string}
  */
-export function getShape(object, coord, imgRatioXY) {
+export function getWkt(object, coord, imgRatioXY) {
     let l = (object.left - coord[0]) / imgRatioXY.x;
     let t = (object.top - coord[1]) / imgRatioXY.y;
     let w = object.width / imgRatioXY.x;
@@ -243,6 +248,91 @@ export function getShape(object, coord, imgRatioXY) {
     let ltPoint = [l.toFixed(2), t.toFixed(2)];
     let rbPoint = [(l + w).toFixed(2), (t + h).toFixed(2)];
     return `BOX(${ltPoint.join(' ')},${rbPoint.join(' ')})`;
+}
+
+function _getSinglePolygonWkt(object, coord, imgRatioXY, zoom) {
+    let anchors = object._polygonAnchors;
+    let wktPiece = [];
+    anchors.forEach((item) => {
+        let tarRadius = calcSWByScale(item.originRadius, zoom);
+        let tarSW = calcSWByScale(item.originStrokeWidth, zoom);
+        let offset = tarRadius + tarSW / 2;
+        let l = (item.left + offset - coord[0]) / imgRatioXY.x;
+        let t = (item.top + offset - coord[1]) / imgRatioXY.y;
+        wktPiece.push(l.toFixed(2) + ' ' + t.toFixed(2));
+    });
+    if(wktPiece.length) {
+        wktPiece.push(wktPiece[0]);
+    }
+    return '((' + wktPiece.join(',') + '))';
+}
+
+export function getPolygonWkt(object, coord, imgRatioXY, zoom) {
+    let shapes = [];
+    if(object._groupPolygon instanceof Array && object._groupPolygon.length) {
+        object._groupPolygon.forEach((item) => {
+            shapes.push(_getSinglePolygonWkt(item, coord, imgRatioXY, zoom));
+        });
+    }else {
+        shapes.push(_getSinglePolygonWkt(object, coord, imgRatioXY, zoom));
+    }
+    return 'MULTIPOLYGON(' + shapes.join(',') + ')';
+}
+
+function _createPolygon(points, drawer) {
+    let originPos = calcBoundingRectPoit(points);
+    return new fabric.Polygon(points, {
+        left: originPos.x,
+        top: originPos.y,
+        strokeWidth: drawer.drawStyle._borderWidth,
+        stroke: drawer.drawStyle.borderColor,
+        fill: drawer.drawStyle.backColor,
+        objectCaching: false,
+        hasControls: false,
+        hasBorders: false,
+        // selectable: false,
+        // evented: false,
+    });
+}
+
+export function parsePolygonFromWkt(wkt, drawer, coord, imgRatioXY) {
+    if(!wkt) return null;
+
+    let tmpWkt = wkt.replace('MULTIPOLYGON(', '');
+    tmpWkt = tmpWkt.substring(0, tmpWkt.length - 1);
+    let wktPieces = [];
+    let i = tmpWkt.indexOf('))');
+    while (i > -1) {
+        wktPieces.push(tmpWkt.substring(0, i + 2));
+        tmpWkt = tmpWkt.substring(i + 3);
+        i = tmpWkt.indexOf('))');
+    }
+
+    let polygons = [];
+    let isGroup = wktPieces.length > 0;
+    let groupPolygon = [];
+    let groupIndex = ++drawer.groupPolyGeoIndex;
+    wktPieces.forEach((wktPiece) => {
+        let tmpWktPiece = wktPiece.replace(/\(\(|\)\)/g, '');
+        let piecePointStrs = tmpWktPiece.split(',');
+        let points = [];
+        piecePointStrs.forEach((piecePStr) => {
+            let tmpPoint = piecePStr.split(' ');
+            points.push({
+                x: parseFloat(tmpPoint[0]) * imgRatioXY.x + coord[0],
+                y: parseFloat(tmpPoint[1]) * imgRatioXY.y +coord[1]
+            });
+        });
+        points.pop();  // 去除最后一个重复的点
+        let polygon = _createPolygon(points, drawer);
+        if(isGroup) {
+            polygon._groupPolygonIndex = groupIndex;
+            groupPolygon.push(polygon);
+            polygon._groupPolygon = groupPolygon;
+        }
+        polygons.push(polygon);
+    });
+    return polygons;
 }
 
 /**
@@ -291,10 +381,12 @@ function _getObjPointerToCon(object, zoom) {
 
 export function setObjectMoveLock(objects, isLock) {
     objects.forEach((item) => {
-        item.set({
-            lockMovementX: isLock,
-            lockMovementY: isLock
-        });
+        if(item instanceof fabric.Object) {
+            item.set({
+                lockMovementX: isLock,
+                lockMovementY: isLock
+            });
+        }
     });
 }
 
@@ -324,12 +416,59 @@ export function setStrokeWidthByScale(item, scale) {
     if (item.agType === 'ag-label') {
         return;
     }
-    if (item.isType('rect') || item.isType('ellipse')) {
-        let strokeWidth = calcSWByScale(item.originStrokeWidth, scale);
-        item.set('strokeWidth', strokeWidth).setCoords();
-    } else if (item.isType('group')) {
+
+    if (item.isType('group')) {
         item.forEachObject(function (obj, index, objs) {
             setStrokeWidthByScale(obj, scale);
         });
+    }else {
+        let strokeWidth = calcSWByScale(item.originStrokeWidth, scale);
+        item.set('strokeWidth', strokeWidth).setCoords();
     }
+}
+
+export function calcBoundingRectPoit(points) {
+    var p = {};
+    points.forEach((item) => {
+        if(!p.x || item.x < p.x) {
+            p.x = item.x;
+        }
+        if(!p.y || item.y < p.y) {
+            p.y = item.y;
+        }
+    });
+    return p;
+}
+
+export function scaleImgToSize(oImg, tarSize) {
+    oImg.scaleX = tarSize[0] / oImg.width;
+    oImg.scaleY = tarSize[1] / oImg.height;
+}
+
+/**
+ * 将对象转为数组，数组元素为对象属性值
+ * @param {*} object
+ */
+export function convertObjToArr(object) {
+    var result = [];
+    if(typeof object === 'object') {
+        for(var key in object) {
+            result.push(object[key]);
+        }
+    }
+    return result;
+}
+
+/**
+ * 将对象属性转为数组
+ * @param {*} object
+ */
+export function convertObjKeyToArr(object) {
+    var result = [];
+    if(typeof object === 'object') {
+        for(var key in object) {
+            result.push(key);
+        }
+    }
+    return result;
 }

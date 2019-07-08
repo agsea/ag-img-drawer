@@ -1,6 +1,7 @@
 // 一些工具方法及其他
 
-import DrawerMode from "./drawer-mode";
+import DrawerMode from './drawer-mode';
+import AgMultiPolygon from './multi-polygon';
 
 // 自定义的一些对象类型
 export const AG_TYPE = {
@@ -308,7 +309,8 @@ export function parsePolygonFromWkt(wkt, drawer, coord, imgRatioXY) {
         i = tmpWkt.indexOf('))');
     }
 
-    let polygons = [];
+    let multiPolygon = new AgMultiPolygon();
+    let polygons = multiPolygon.polygons;
     let isGroup = wktPieces.length > 0;
     let groupPolygon = [];
     let groupIndex = ++drawer.groupPolyGeoIndex;
@@ -332,7 +334,7 @@ export function parsePolygonFromWkt(wkt, drawer, coord, imgRatioXY) {
         }
         polygons.push(polygon);
     });
-    return polygons;
+    return multiPolygon;
 }
 
 /**

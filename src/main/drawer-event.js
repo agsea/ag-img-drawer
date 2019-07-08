@@ -199,23 +199,7 @@ function keyupHandler(evt) {
         spaceKey = curDrawer.keyStatus.space = false;
         _toggleDragMode(self, false);
     } else if (keyCode === 71) {    // G键
-        if(!self.isDrawingPolyGeo) {
-            if(self.isDrawingGroupPolyGeo) {
-                showMessgae('退出多边形组绘制模式', {
-                    type: 'info',
-                    duration: 1500
-                });
-                self.isDrawingGroupPolyGeo = false;
-            }else {
-                showMessgae('进入多边形组绘制模式', {
-                    type: 'warning',
-                    duration: 1500
-                });
-                self.isDrawingGroupPolyGeo = true;
-                self.groupPolyGeoIndex++;
-            }
-            self._groupPolygon = [];
-        }
+        self.toggleGroupPolygonMode();
     }
 }
 

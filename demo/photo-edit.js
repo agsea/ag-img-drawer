@@ -27,7 +27,7 @@ $().ready(function() {
             drawer.drawType = 'Polygon';
         },
         afterAdd: function(object) {
-            // console.info('添加', object);
+            console.info('添加', object);
             addNodeByObject(object);
         },
         afterDraw: function(object) {
@@ -362,10 +362,9 @@ function drawPolygons() {
     var wkt1 = 'MULTIPOLYGON(((3136.51 1044.40,2763.60 2322.97,3489.46 2862.38,4468.37 2975.58,4861.27 1916.76,4448.39 1337.40,3136.51 1044.40)))';
     var wkt2 = 'MULTIPOLYGON(((1752.38 2206.35,1479.37 3019.05,2393.65 3330.16,2780.95 2326.98,1752.38 2206.35)),((3733.33 2384.13,3384.13 3165.08,4895.24 2676.19,3733.33 2384.13)))';
     var wkt3 = 'MULTIPOLYGON(((2628.57 1628.57,2298.41 2980.95,4038.10 3285.71,5047.62 2904.76,5085.71 1812.70,4768.25 555.56,3822.22 504.76,3104.76 555.56,2628.57 1628.57)))';
-    var objs = drawer.parsePolygon(wkt3);
-    objs.forEach((obj) => {
-        drawer.addObject(obj);
-    });
+    var wkt4 = 'MULTIPOLYGON(((537.49 2622.20,321.32 3037.00,712.76 3060.37,852.97 2815.00,882.18 2610.52,537.49 2622.20)),((1536.51 2949.37,1191.82 3393.38,1939.63 3416.75,2056.48 3037.00,1536.51 2949.37)))';
+    var multiPolygonObj = drawer.parsePolygon(wkt4);
+    drawer.addObject(multiPolygonObj);
 }
 
 /**

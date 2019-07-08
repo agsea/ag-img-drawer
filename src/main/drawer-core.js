@@ -43,6 +43,7 @@ import {
     updatePolygonAnchor,
     removePolygonAnchor
 } from './drawer-assist';
+import {showMessgae} from "./drawer-message";
 
 (function (global) {
     // 默认配置项
@@ -202,6 +203,7 @@ import {
         this.isDrawingPolyGeo = false;
         this.isDrawingGroupPolyGeo = false;
         this.groupPolyGeoIndex = 0;
+        this._tempGroupPolygon = null;
         this._groupPolygon = [];
         _initCanvasContent(this, option);
     };
@@ -377,12 +379,19 @@ import {
                     self.drawingItem._groupPolygonIndex = self.groupPolyGeoIndex;
                     self._groupPolygon.push(self.drawingItem);
                     self.drawingItem._groupPolygon = self._groupPolygon;
+
+                    // 临时记录绘制的多边形组
+                    if(!self._tempGroupPolygon) {
+                        self._tempGroupPolygon = self.drawingItem;
+                    }
                 }
                 _bindEvtForObject(self.drawingItem, self);
 
                 _setForNewObject(self.drawingItem, self);
-                option.afterAdd(self.drawingItem);
-                option.afterDraw(self.drawingItem);
+                if(!self.isDrawingGroupPolyGeo) {
+                    option.afterAdd(self.drawingItem);
+                    option.afterDraw(self.drawingItem);
+                }
                 removePolygonAssistLine(self);
                 drawPolygonAnchor(self, self.drawingItem);
                 self.drawingItem = null;
@@ -672,7 +681,13 @@ import {
 
             let aciveObjs = self.getSelection();
             if(aciveObjs.length) {
-                option.afterSelect(aciveObjs);
+                option.afterSelect(aciveObjs.map((item) => {
+                    if(item._groupPolygon) {
+                        return item._groupPolygon[0];
+                    }else {
+                        return item;
+                    }
+                }));
                 self.highlightObjects(aciveObjs);
             }
         });
@@ -682,7 +697,13 @@ import {
 
             let aciveObjs = self.getSelection();
             if(aciveObjs.length) {
-                option.afterSelect(aciveObjs);
+                option.afterSelect(aciveObjs.map((item) => {
+                    if(item._groupPolygon) {
+                        return item._groupPolygon[0];
+                    }else {
+                        return item;
+                    }
+                }));
                 self.highlightObjects(aciveObjs);
             }
         });
@@ -797,7 +818,15 @@ import {
      * 添加一个对象
      * @param object
      */
-    global.AgImgDrawer.prototype.addObject = function (object) {
+    global.AgImgDrawer.prototype.addObject = function (object, ifExecCallback) {
+        if(object.isType('ag-multi-polygon')) {
+            let polygonObjs = object.polygons;
+            polygonObjs.forEach((item, index) => {
+                this.addObject(item, index === 0);
+            });
+            return;
+        }
+
         let isPolygon = object.isType('polygon');
         if(object.agSource !== AG_SOURCE.byDraw && !isPolygon) {
             // 添加偏移
@@ -819,7 +848,9 @@ import {
         this.setObjectInteractive(object, object.agInteractive);
         _bindEvtForObject(object, this);
         setStrokeWidthByScale(object, this.zoom);
-        this.option.afterAdd(object);
+        if(ifExecCallback !== false) {
+            this.option.afterAdd(object);
+        }
     };
 
     /**
@@ -1377,12 +1408,16 @@ import {
     /**
      * 高亮显示对象
      * @param objects
+     * @param darkenOther - 是否取消其他高亮对象的高亮状态
      */
     global.AgImgDrawer.prototype.highlightObjects = function (objects) {
         let self = this;
 
         if (objects && objects.length) {
-            self.darkenObjects(self._beforeHgObjs);
+            let darkenOther = !objects[0]._groupPolygon;
+            if(darkenOther !== false) {
+                self.darkenObjects(self._beforeHgObjs);
+            }
             self._beforeHgObjs = objects;
 
             let object, type;
@@ -1574,6 +1609,36 @@ import {
     global.AgImgDrawer.prototype.parsePolygon = function (wkt, imgScaleXY) {
         imgScaleXY = imgScaleXY ? imgScaleXY : this.backgroundImageScale;
         return parsePolygonFromWkt(wkt, this, this._originCoord, imgScaleXY);
+    };
+
+    /**
+     * 切换多边形组绘制模式
+     * @param wkt
+     * @param imgScaleXY
+     * @returns {Array}
+     */
+    global.AgImgDrawer.prototype.toggleGroupPolygonMode = function () {
+        if(!this.isDrawingPolyGeo) {
+            if(this.isDrawingGroupPolyGeo) {
+                showMessgae('退出多边形组绘制模式', {
+                    type: 'info',
+                    duration: 1500
+                });
+                this.isDrawingGroupPolyGeo = false;
+
+                // 执行添加多边形组的回调
+                this.option.afterAdd(this._tempGroupPolygon);
+                this.option.afterDraw(this._tempGroupPolygon);
+            }else {
+                showMessgae('进入多边形组绘制模式', {
+                    type: 'warning',
+                    duration: 1500
+                });
+                this.isDrawingGroupPolyGeo = true;
+                this.groupPolyGeoIndex++;
+            }
+            this._groupPolygon = [];
+        }
     };
 
 
@@ -1833,7 +1898,11 @@ import {
                 moveCursor: MODE_CURSOR.move
             });
             target.selected = true;
-            _this.highlightObjects([target]);
+            if(target._groupPolygon) {
+                _this.highlightObjects(target._groupPolygon);
+            }else {
+                _this.highlightObjects([target]);
+            }
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true);
 
@@ -1855,7 +1924,11 @@ import {
                 }
             }
             target.selected = false;
-            _this.darkenObjects([target]);
+            if(target._groupPolygon) {
+                _this.darkenObjects(target._groupPolygon);
+            }else {
+                _this.darkenObjects([target]);
+            }
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false);
 

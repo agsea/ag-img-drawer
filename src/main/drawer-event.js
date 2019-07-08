@@ -171,6 +171,9 @@ function keydownHandler(evt) {
         } else {
             self.option.afterEnter(null, false, false);
         }
+
+        // 结束多边形绘制
+        self._completeDrawPolygon();
     } else if (keyCode === 84) {  //T键切换浏览模式
         if (self._beforeMode) {
             self.setMode(self._beforeMode);

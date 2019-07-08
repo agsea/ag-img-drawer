@@ -122,9 +122,7 @@ import {showMessgae} from "./drawer-message";
         max: 30
     };
 
-    let tmpPolyGeoPoints = [];
     let ifAddNewPolyPoint = false;
-    let drawPolygonTimer = null;
 
 
     //--------------------------------------------------------
@@ -202,9 +200,14 @@ import {showMessgae} from "./drawer-message";
         this.isDrawingBasic = false;
         this.isDrawingPolyGeo = false;
         this.isDrawingGroupPolyGeo = false;
+
+        this._tmpPolyGeoPoints = [];
+        this._drawPolygonTimer = null;
         this.groupPolyGeoIndex = 0;
         this._tempGroupPolygon = null;
         this._groupPolygon = [];
+
+
         _initCanvasContent(this, option);
     };
 
@@ -343,14 +346,14 @@ import {showMessgae} from "./drawer-message";
                         if(!self.keyStatus.ctrl && !hasSelect && self.drawType === DRAWER_TYPE.polygon) {
                             self.isDrawingPolyGeo = true;
 
-                            if(drawPolygonTimer) clearTimeout(drawPolygonTimer);
-                            drawPolygonTimer = setTimeout(() => {
+                            if(self._drawPolygonTimer) clearTimeout(self._drawPolygonTimer);
+                            self._drawPolygonTimer = setTimeout(() => {
                                 let clickP = {
                                     x: evt.absolutePointer.x,
                                     y: evt.absolutePointer.y
                                 };
-                                tmpPolyGeoPoints.pop();
-                                tmpPolyGeoPoints.push(clickP);
+                                self._tmpPolyGeoPoints.pop();
+                                self._tmpPolyGeoPoints.push(clickP);
                                 ifAddNewPolyPoint = false;
                             }, 250);
                         }else {
@@ -363,40 +366,8 @@ import {showMessgae} from "./drawer-message";
             }
         });
         canvas.on('mouse:dblclick', function (evt) {
-            // 双节结束多边形绘制
-            if(tmpPolyGeoPoints.length >= 3) {
-                if(drawPolygonTimer) clearTimeout(drawPolygonTimer);
-                tmpPolyGeoPoints = [];
-                self.isDrawingPolyGeo = false;
-
-                self.drawingItem.set({
-                    strokeWidth: self.drawStyle._borderWidth,
-                    fill: self.drawStyle.backColor
-                });
-                // 如果是绘制多边形组模式
-
-                if(self.isDrawingGroupPolyGeo) {
-                    self.drawingItem._groupPolygonIndex = self.groupPolyGeoIndex;
-                    self._groupPolygon.push(self.drawingItem);
-                    self.drawingItem._groupPolygon = self._groupPolygon;
-
-                    // 临时记录绘制的多边形组
-                    if(!self._tempGroupPolygon) {
-                        self._tempGroupPolygon = self.drawingItem;
-                    }
-                }
-                _bindEvtForObject(self.drawingItem, self);
-
-                _setForNewObject(self.drawingItem, self);
-                if(!self.isDrawingGroupPolyGeo) {
-                    option.afterAdd(self.drawingItem);
-                    option.afterDraw(self.drawingItem);
-                }
-                removePolygonAssistLine(self);
-                drawPolygonAnchor(self, self.drawingItem);
-                self.drawingItem = null;
-                self.refresh();
-            }
+            // 双击结束多边形绘制
+            self._completeDrawPolygon();
         });
         canvas.on('mouse:move', function (evt) {
             _hoverOnCanvas = true;
@@ -430,7 +401,7 @@ import {showMessgae} from "./drawer-message";
                         endY = limitDrawBoundary(endY, self._originCoord[1], self.backgroundImageSize[1]);
                     }
 
-                    if(self.drawType === DRAWER_TYPE.polygon && tmpPolyGeoPoints.length > 0) {
+                    if(self.drawType === DRAWER_TYPE.polygon && self._tmpPolyGeoPoints.length > 0) {
                         let mousePoint = {
                             x: evt.absolutePointer.x,
                             y: evt.absolutePointer.y
@@ -442,17 +413,17 @@ import {showMessgae} from "./drawer-message";
 
                         if(!ifAddNewPolyPoint) {
                             ifAddNewPolyPoint = true;
-                            tmpPolyGeoPoints.push(mousePoint);
+                            self._tmpPolyGeoPoints.push(mousePoint);
                         }else {
-                            tmpPolyGeoPoints.pop();
-                            tmpPolyGeoPoints.push(mousePoint);
+                            self._tmpPolyGeoPoints.pop();
+                            self._tmpPolyGeoPoints.push(mousePoint);
                         }
 
-                        drawPolygonAssistLine(self, tmpPolyGeoPoints,
+                        drawPolygonAssistLine(self, self._tmpPolyGeoPoints,
                             fabric.util.object.clone(mousePoint));
 
-                        let originPos = calcBoundingRectPoit(tmpPolyGeoPoints);
-                        self.drawingItem = new fabric.Polygon(tmpPolyGeoPoints, {
+                        let originPos = calcBoundingRectPoit(self._tmpPolyGeoPoints);
+                        self.drawingItem = new fabric.Polygon(self._tmpPolyGeoPoints, {
                             left: originPos.x,
                             top: originPos.y,
                             strokeWidth: 0,
@@ -1598,7 +1569,7 @@ import {showMessgae} from "./drawer-message";
             removePolygonAssistLine(this);
             this.canvas.remove(this.drawingItem);
             this.isDrawingPolyGeo = false;
-            tmpPolyGeoPoints = [];
+            this._tmpPolyGeoPoints = [];
             this.refresh();
         }
     };
@@ -1638,6 +1609,42 @@ import {showMessgae} from "./drawer-message";
                 this.groupPolyGeoIndex++;
             }
             this._groupPolygon = [];
+        }
+    };
+
+    global.AgImgDrawer.prototype._completeDrawPolygon = function () {
+        if(this.isDrawingPolyGeo && this._tmpPolyGeoPoints.length >= 3) {
+            if(this._drawPolygonTimer) clearTimeout(this._drawPolygonTimer);
+            this._tmpPolyGeoPoints = [];
+            this.isDrawingPolyGeo = false;
+
+            this.drawingItem.set({
+                strokeWidth: this.drawStyle._borderWidth,
+                fill: this.drawStyle.backColor
+            });
+
+            // 如果是绘制多边形组模式
+            if(this.isDrawingGroupPolyGeo) {
+                this.drawingItem._groupPolygonIndex = this.groupPolyGeoIndex;
+                this._groupPolygon.push(this.drawingItem);
+                this.drawingItem._groupPolygon = this._groupPolygon;
+
+                // 临时记录绘制的多边形组
+                if(!this._tempGroupPolygon) {
+                    this._tempGroupPolygon = this.drawingItem;
+                }
+            }
+            _bindEvtForObject(this.drawingItem, this);
+
+            _setForNewObject(this.drawingItem, this);
+            if(!this.isDrawingGroupPolyGeo) {
+                this.option.afterAdd(this.drawingItem);
+                this.option.afterDraw(this.drawingItem);
+            }
+            removePolygonAssistLine(this);
+            drawPolygonAnchor(this, this.drawingItem);
+            this.drawingItem = null;
+            this.refresh();
         }
     };
 

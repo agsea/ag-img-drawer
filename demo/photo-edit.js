@@ -337,25 +337,6 @@ function drawRects() {
         // drawer.addObject(agRect2);
         // groupObjectMap['groupObj' + 2] = agRect2;
     }
-
-    // var poly = new fabric.Polyline([
-    //     { x: 10, y: 10 },
-    //     { x: 50, y: 30 },
-    //     { x: 40, y: 70 },
-    //     { x: 60, y: 50 },
-    //     { x: 100, y: 150 },
-    //     { x: 40, y: 100 }
-    // ], {
-    //     stroke: 'red',
-    //     left: 100,
-    //     top: 100
-    // });
-    // var group = new fabric.Group([ poly ], {
-    //     left: 150,
-    //     top: 100,
-    //     angle: -10
-    // });
-    // drawer.addObject(group);
 }
 
 function drawPolygons() {

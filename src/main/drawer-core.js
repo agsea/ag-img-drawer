@@ -859,8 +859,23 @@ import {showMessgae} from "./drawer-message";
 
         if (object instanceof fabric.Object && this.canvas.contains(object)) {
             if (object.selected === true) this.canvas.discardActiveObject();
-            this.option.afterDelete(objects, this.keyStatus.ctrl);
-            this.canvas.fxRemove(object);
+            if(object.isType('polygon')) {
+                let polygonObjs = object._groupPolygon;
+                if(polygonObjs) {
+                    polygonObjs.forEach((item, index) => {
+                        this.canvas.fxRemove(item);
+                        removePolygonAnchor(this, item);
+                    });
+                }else {
+                    this.canvas.fxRemove(object);
+                    removePolygonAnchor(this, object);
+                }
+            }else {
+                this.canvas.fxRemove(object);
+            }
+            if (ifExecCallback) {
+                this.option.afterDelete(objects, this.keyStatus.ctrl);
+            }
         }
     };
 
@@ -879,10 +894,25 @@ import {showMessgae} from "./drawer-message";
         for (let i = 0, len = objects.length; i < len; i++) {
             tmp = objects[i];
             if (tmp.selected === true) this.canvas.discardActiveObject();
-            this.canvas.remove(tmp);
+            if(tmp.isType('polygon')) {
+                let polygonObjs = tmp._groupPolygon;
+                if(polygonObjs) {
+                    polygonObjs.forEach((item, index) => {
+                        this.canvas.fxRemove(item);
+                        removePolygonAnchor(this, item);
+                    });
+                }else {
+                    this.canvas.fxRemove(tmp);
+                    removePolygonAnchor(this, tmp);
+                }
+            }else {
+                this.canvas.fxRemove(tmp);
+            }
             success.push(tmp);
         }
-        this.option.afterDelete(success, this.keyStatus.ctrl);
+        if (ifExecCallback) {
+            this.option.afterDelete(success, this.keyStatus.ctrl);
+        }
         this.refresh();
     };
 
@@ -1099,7 +1129,7 @@ import {showMessgae} from "./drawer-message";
             setStrokeWidthByScale(item, zoom);
             updateObjectOverlays(item);
             if(item.isType('polygon')) {
-                updatePolygonAnchor(item);
+                updatePolygonAnchor(this, item);
             }
         });
         this.refresh();
@@ -1359,6 +1389,10 @@ import {showMessgae} from "./drawer-message";
             console.error('Parameter [option.ele] or [option.target] missing.');
             return;
         }
+        if(option.target.isType('ag-multi-polygon')) {
+            option.target = option.target.polygons[0];
+        }
+
         if (!option.target._overlays) option.target._overlays = [];
         option.offset = option.offset instanceof Array ? option.offset : [0, 0];
         option.ele.classList.add('ag-overlay');
@@ -1951,7 +1985,7 @@ import {showMessgae} from "./drawer-message";
         target.on('moving', function (evt) {
             target.moveCursor = MODE_CURSOR.move;
             if(target.isType('polygon')) {
-                updatePolygonAnchor(target);
+                updatePolygonAnchor(_this, target);
             }
         });
     }

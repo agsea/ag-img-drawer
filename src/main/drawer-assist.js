@@ -165,7 +165,7 @@ export function drawPolygonAnchor(drawer, polygon) {
     });
 }
 
-export function updatePolygonAnchor(polygon) {
+export function updatePolygonAnchor(drawer, polygon) {
     if(!polygon || !(polygon.points instanceof Array)) return;
 
     let offsetL = polygon.left - polygon.originLeft;

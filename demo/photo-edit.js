@@ -46,11 +46,11 @@ $().ready(function() {
             // console.info('回车', object, isSingle, isModified);
         },
         beforeDelete: function (objects, ctrlKey) {
-            console.info('删除前', ctrlKey, objects);
+            // console.info('删除前', ctrlKey, objects);
             // return false;
         },
         afterDelete: function(objects, ctrlKey) {
-            // console.info('删除', objects);
+            console.info('删除', objects);
             deleteNodeByObjects(objects);
         },
         afterClear: function(objects) {
@@ -346,6 +346,18 @@ function drawPolygons() {
     var wkt4 = 'MULTIPOLYGON(((537.49 2622.20,321.32 3037.00,712.76 3060.37,852.97 2815.00,882.18 2610.52,537.49 2622.20)),((1536.51 2949.37,1191.82 3393.38,1939.63 3416.75,2056.48 3037.00,1536.51 2949.37)))';
     var multiPolygonObj = drawer.parsePolygon(wkt4);
     drawer.addObject(multiPolygonObj);
+    drawer.createOverlay({
+        ele: createLabelPopu('这是一个位于上面悬浮框-多边形'),
+        target: multiPolygonObj,
+        position: 'top',
+        visible: true
+    });
+    drawer.createOverlay({
+        ele: createPopu('这是一个位于下面悬浮框-多边形'),
+        target: multiPolygonObj,
+        position: 'bottom',
+        visible: 'auto'
+    });
 }
 
 /**

@@ -979,6 +979,7 @@ import {showMessgae} from "./drawer-message";
      * @param object
      */
     global.AgImgDrawer.prototype.setActiveObject = function (object) {
+        console.info(object);
         object && this.canvas.setActiveObject(object);
     };
 
@@ -1064,6 +1065,9 @@ import {showMessgae} from "./drawer-message";
      */
     global.AgImgDrawer.prototype.locate = function (object) {
         this.resetSize();
+        if(object.isType('ag-multi-polygon') && object.polygons.length) {
+            object = object.polygons[0];
+        }
 
         let l = object.left;
         let t = object.top;
@@ -1126,10 +1130,15 @@ import {showMessgae} from "./drawer-message";
 
         let objs = this.getObjects();
         objs.forEach((item) => {
-            setStrokeWidthByScale(item, zoom);
-            updateObjectOverlays(item);
             if(item.isType('polygon')) {
-                updatePolygonAnchor(this, item);
+                item._groupPolygon.forEach((polyItem) => {
+                    setStrokeWidthByScale(polyItem, zoom);
+                    updateObjectOverlays(polyItem);
+                    updatePolygonAnchor(this, polyItem);
+                });
+            }else {
+                setStrokeWidthByScale(item, zoom);
+                updateObjectOverlays(item);
             }
         });
         this.refresh();

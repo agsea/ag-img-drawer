@@ -166,7 +166,7 @@ export function drawPolygonAnchor(drawer, polygon) {
 }
 
 export function updatePolygonAnchor(drawer, polygon) {
-    if(!polygon || !(polygon.points instanceof Array)) return;
+    if(!polygon || !(polygon._polygonAnchors instanceof Array)) return;
 
     let offsetL = polygon.left - polygon.originLeft;
     let offsetT = polygon.top - polygon.originTop;

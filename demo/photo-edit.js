@@ -27,7 +27,7 @@ $().ready(function() {
             drawer.drawType = 'Polygon';
         },
         afterAdd: function(object) {
-            console.info('添加', object);
+            // console.info('添加', object);
             addNodeByObject(object);
         },
         afterDraw: function(object) {
@@ -57,7 +57,7 @@ $().ready(function() {
             deleteNodeByObjects(objects);
         },
         afterSelect: function(objects) {
-            console.info('选中', objects);
+            // console.info('选中', objects);
         },
         afterObjectDeSelect: function(object) {
             // console.info('单个物体取消选中', object);
@@ -358,6 +358,8 @@ function drawPolygons() {
         position: 'bottom',
         visible: 'auto'
     });
+
+    groupObjectMap['groupObj2'] = multiPolygonObj;
 }
 
 /**
@@ -402,7 +404,7 @@ function dark() {
 }
 var locateIndex = 0, locateIndexBefore;
 function locate() {
-    locateIndex = locateIndex > 1 ? 0 : locateIndex;
+    locateIndex = locateIndex > 2 ? 0 : locateIndex;
 
     drawer.locate(groupObjectMap['groupObj' + locateIndex]);
 

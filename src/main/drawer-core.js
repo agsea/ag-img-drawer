@@ -30,7 +30,8 @@ import {
     scaleImgToSize,
     MOUSE_POINT,
     convertObjToArr,
-    parsePolygonFromWkt
+    parsePolygonFromWkt,
+    moveObjectIndex
 } from './drawer-utils';
 import {
     ASSIST_LINE_MODE,
@@ -41,7 +42,8 @@ import {
     removePolygonAssistLine,
     drawPolygonAnchor,
     updatePolygonAnchor,
-    removePolygonAnchor
+    removePolygonAnchor,
+    setPolygonAnchorVisible
 } from './drawer-assist';
 import {showMessgae} from "./drawer-message";
 
@@ -183,10 +185,11 @@ import {showMessgae} from "./drawer-message";
             overline: false,
             strokeColor: '#fff',
             strokeWidth: 0,
-            anchorSize: 10,
+            anchorSize: 8,
             anchorShape: 'circle',  // 'rect' or 'circle'
             anchorColor: '#51ef75',
-            anchorStrokeWidth: 2,
+            anchorColorActive: '#ffc64b',
+            anchorStrokeWidth: 1,
             anchorStrokeColor: '#f5f5f5'
         };
         this._drawIndex = 0;
@@ -202,6 +205,8 @@ import {showMessgae} from "./drawer-message";
         this.isDrawingGroupPolyGeo = false;
 
         this._tmpPolyGeoPoints = [];
+        this._undoPolyGeoPoints = [];
+        this._undo = false;
         this._drawPolygonTimer = null;
         this.groupPolyGeoIndex = 0;
         this._tempGroupPolygon = null;
@@ -348,6 +353,15 @@ import {showMessgae} from "./drawer-message";
 
                             if(self._drawPolygonTimer) clearTimeout(self._drawPolygonTimer);
                             self._drawPolygonTimer = setTimeout(() => {
+                                if(self._undo) {
+                                    self._undo = false;
+                                    if(self._tmpPolyGeoPoints.length) {
+                                        self._undoPolyGeoPoints.pop();
+                                    }else {
+                                        self._undoPolyGeoPoints = [];
+                                    }
+                                }
+
                                 let clickP = {
                                     x: evt.absolutePointer.x,
                                     y: evt.absolutePointer.y
@@ -388,7 +402,9 @@ import {showMessgae} from "./drawer-message";
                 self._pointerObjIndex = 0;
 
                 if(!self.keyStatus.space && self.mode === DrawerMode.draw &&
-                    self.assistLineMode === ASSIST_LINE_MODE.always) {
+                    (self.assistLineMode === ASSIST_LINE_MODE.always ||
+                        (self.assistLineMode === ASSIST_LINE_MODE.onMouseDown &&
+                            (self.isDrawingPolyGeo || self.isDrawingGroupPolyGeo)))) {
                     drawAssistLine(self, evt.absolutePointer);
                 }
 
@@ -406,10 +422,6 @@ import {showMessgae} from "./drawer-message";
                             x: evt.absolutePointer.x,
                             y: evt.absolutePointer.y
                         };
-                        // 多边形绘制
-                        if (self.drawingItem) {
-                            canvas.remove(self.drawingItem);
-                        }
 
                         if(!ifAddNewPolyPoint) {
                             ifAddNewPolyPoint = true;
@@ -419,25 +431,7 @@ import {showMessgae} from "./drawer-message";
                             self._tmpPolyGeoPoints.push(mousePoint);
                         }
 
-                        drawPolygonAssistLine(self, self._tmpPolyGeoPoints,
-                            fabric.util.object.clone(mousePoint));
-
-                        let originPos = calcBoundingRectPoit(self._tmpPolyGeoPoints);
-                        self.drawingItem = new fabric.Polygon(self._tmpPolyGeoPoints, {
-                            left: originPos.x,
-                            top: originPos.y,
-                            strokeWidth: 0,
-                            stroke: self.drawStyle.borderColor,
-                            fill: self.drawStyle.backColorHover,
-                            objectCaching: false,
-                            hasControls: false,
-                            hasBorders: false,
-                            // selectable: false,
-                            // evented: false,
-                            agSource: AG_SOURCE.byDraw
-                        });
-                        self.canvas.add(self.drawingItem);
-                        _bindEvtForObject(self.drawingItem, self);
+                        _drawPolygon(self, self._tmpPolyGeoPoints);
                     }else if(hit && self.drawType !== DRAWER_TYPE.polygon) {
                         // 基本几何形状绘制
                         self.isDrawingBasic = true;
@@ -507,9 +501,6 @@ import {showMessgae} from "./drawer-message";
                         self.canvas.add(self.drawingItem);
                         _bindEvtForObject(self.drawingItem, self);
                     }
-                    if(!self.keyStatus.space && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown) {
-                        drawAssistLine(self, evt.absolutePointer);
-                    }
                     self.refresh();
                 }
             }
@@ -549,7 +540,8 @@ import {showMessgae} from "./drawer-message";
 
                 self.drawingItem = null;
             }
-            if(self.mode === DrawerMode.draw && self.assistLineMode !== ASSIST_LINE_MODE.hide) {
+            if(self.mode === DrawerMode.draw && !self.isDrawingPolyGeo &&
+                !self.isDrawingGroupPolyGeo && self.assistLineMode === ASSIST_LINE_MODE.onMouseDown) {
                 removeAssistLine(self);
             }
         });
@@ -612,13 +604,22 @@ import {showMessgae} from "./drawer-message";
         });
         canvas.on('object:modified', function (evt) {
             let target = evt.target;
-            if(!_isInteractiveAgType(target)) return;
-
-            let isSingle = target.type !== 'activeSelection' && target.type !== 'group';
-            target.modified = true;
-            option.afterModify(target, isSingle);
-            DrawerEvt.objectModifiedHandler(target);
-            target.lockScaleInDrawer = false;
+            if(_isAgAnchor(target)) {
+                // 操作多边形的锚点同样时修改了对象
+                let targetObj = target._linkedPolygon;
+                targetObj.modified = true;
+                option.afterModify(targetObj, true);
+                DrawerEvt.objectModifiedHandler(targetObj);
+            }else {
+                if(!_isInteractiveAgType(target)) {
+                    return;
+                }
+                let isSingle = target.type !== 'activeSelection' && target.type !== 'group';
+                target.modified = true;
+                option.afterModify(target, isSingle);
+                DrawerEvt.objectModifiedHandler(target);
+                target.lockScaleInDrawer = false;
+            }
         });
         canvas.on('object:moving', function (evt) {
             let target = evt.target;
@@ -979,7 +980,6 @@ import {showMessgae} from "./drawer-message";
      * @param object
      */
     global.AgImgDrawer.prototype.setActiveObject = function (object) {
-        console.info(object);
         object && this.canvas.setActiveObject(object);
     };
 
@@ -988,12 +988,25 @@ import {showMessgae} from "./drawer-message";
      * @param object
      */
     global.AgImgDrawer.prototype.setObjectVisible = function (object, visible) {
-        object.set('visible', visible);
-        _setControlShow(object, visible);
-        if(visible !== false) {
-            _setObjectOverlaysShow(object, true, false);
+        visible = visible !== false;
+        if(object.isType('ag-multi-polygon')) {
+            object.polygons.forEach((item) => {
+                item.set('visible', visible);
+                _setControlShow(item, visible);
+                _setObjectOverlaysShow(item, visible, !visible);
+                setPolygonAnchorVisible(item, visible);
+            });
+        }else if(object.isType('polygon') && object._groupPolygon) {
+            object._groupPolygon.forEach((polyItem) => {
+                polyItem.set('visible', visible);
+                _setControlShow(polyItem, visible);
+                _setObjectOverlaysShow(polyItem, visible, !visible);
+                setPolygonAnchorVisible(polyItem, visible);
+            });
         }else {
-            _setObjectOverlaysShow(object, false, true);
+            object.set('visible', visible);
+            _setControlShow(object, visible);
+            _setObjectOverlaysShow(object, visible, !visible);
         }
         this.refresh();
     };
@@ -1130,7 +1143,7 @@ import {showMessgae} from "./drawer-message";
 
         let objs = this.getObjects();
         objs.forEach((item) => {
-            if(item.isType('polygon')) {
+            if(item.isType('polygon') && item._groupPolygon) {
                 item._groupPolygon.forEach((polyItem) => {
                     setStrokeWidthByScale(polyItem, zoom);
                     updateObjectOverlays(polyItem);
@@ -1139,6 +1152,7 @@ import {showMessgae} from "./drawer-message";
             }else {
                 setStrokeWidthByScale(item, zoom);
                 updateObjectOverlays(item);
+                updatePolygonAnchor(this, item);
             }
         });
         this.refresh();
@@ -1449,7 +1463,7 @@ import {showMessgae} from "./drawer-message";
                         stroke: self.drawStyle.borderColorActive,
                         fill: self.drawStyle.backColorActive
                     });
-                    object.moveTo(self._drawIndex + 1);
+                    moveObjectIndex(object, self._drawIndex + 1);
                     let labelObj = object._labelObject;
                     if (labelObj) {
                         // 将标签对象加入选择集使其可以被一起拖动
@@ -1468,7 +1482,7 @@ import {showMessgae} from "./drawer-message";
                         labelObj.item(1).set({
                             fill: this.drawStyle.fontColorActive
                         });
-                        labelObj.moveTo(self._drawIndex + 1);
+                        moveObjectIndex(labelObj, self._drawIndex + 1);
                     }
                 }
             }
@@ -1498,7 +1512,7 @@ import {showMessgae} from "./drawer-message";
                         stroke: self.drawStyle.borderColor,
                         fill: self.drawStyle.backColor
                     });
-                    object.moveTo(object.drawIndex);
+                    moveObjectIndex(object, object.drawIndex);
                     let labelObj = object._labelObject;
                     if (labelObj) {
                         labelObj.item(0).set({
@@ -1507,7 +1521,7 @@ import {showMessgae} from "./drawer-message";
                         labelObj.item(1).set({
                             fill: this.drawStyle.fontColor
                         });
-                        object.moveTo(labelObj.drawIndex);
+                        moveObjectIndex(labelObj, labelObj.drawIndex);
                     }
                 }
             }
@@ -1609,10 +1623,8 @@ import {showMessgae} from "./drawer-message";
      */
     global.AgImgDrawer.prototype.cancelDrawing = function () {
         if(this.isDrawingPolyGeo && this.drawingItem) {
-            removePolygonAssistLine(this);
-            this.canvas.remove(this.drawingItem);
             this.isDrawingPolyGeo = false;
-            this._tmpPolyGeoPoints = [];
+            _removeDrawingPolygon(this);
             this.refresh();
         }
     };
@@ -1641,8 +1653,10 @@ import {showMessgae} from "./drawer-message";
                 this.isDrawingGroupPolyGeo = false;
 
                 // 执行添加多边形组的回调
-                this.option.afterAdd(this._tempGroupPolygon);
-                this.option.afterDraw(this._tempGroupPolygon);
+                if(this._tempGroupPolygon) {
+                    this.option.afterAdd(this._tempGroupPolygon);
+                    this.option.afterDraw(this._tempGroupPolygon);
+                }
             }else {
                 showMessgae('进入多边形组绘制模式', {
                     type: 'warning',
@@ -1659,6 +1673,7 @@ import {showMessgae} from "./drawer-message";
         if(this.isDrawingPolyGeo && this._tmpPolyGeoPoints.length >= 3) {
             if(this._drawPolygonTimer) clearTimeout(this._drawPolygonTimer);
             this._tmpPolyGeoPoints = [];
+            this._undoPolyGeoPoints = [];
             this.isDrawingPolyGeo = false;
 
             this.drawingItem.set({
@@ -1687,8 +1702,61 @@ import {showMessgae} from "./drawer-message";
             removePolygonAssistLine(this);
             drawPolygonAnchor(this, this.drawingItem);
             this.drawingItem = null;
+
+            if(this.assistLineMode === ASSIST_LINE_MODE.onMouseDown) {
+                removeAssistLine(this);
+            }
             this.refresh();
         }
+    };
+
+    /**
+     * 绘制多边形：后退一步
+     * 如果后退一步后绘制了新的点，则撤销记录中最后一次操作将失效
+     * @private
+     */
+    global.AgImgDrawer.prototype._undoDrawPolygon = function () {
+        let polyPoints = this._tmpPolyGeoPoints;
+        let len = polyPoints.length;
+        if(len === 0) {
+            return;
+        }else if(len === 2) {
+            this._undo = true;
+            this._undoPolyGeoPoints.push(this._tmpPolyGeoPoints);
+            _removeDrawingPolygon(this);
+        }else {
+            this._undo = true;
+            let deltePoints = polyPoints.splice(len - 2, 1);
+            this._undoPolyGeoPoints.push(deltePoints);
+            _drawPolygon(this, polyPoints);
+        }
+    };
+
+    /**
+     * 绘制多边形：前进一步
+     * @private
+     */
+    global.AgImgDrawer.prototype._redoDrawPolygon = function () {
+        let undoPolyPoints = this._undoPolyGeoPoints;
+        if(!undoPolyPoints.length) return;
+
+        let polyPoints = this._tmpPolyGeoPoints;
+        let len = polyPoints.length;
+        let redoPoint = undoPolyPoints.pop();
+        if(len === 0) {
+            // polyPoints = redoPoint;
+            polyPoints.push(redoPoint[0]);
+            polyPoints.push(redoPoint[1]);
+            // polyPoints.push(redoPoint[2]);
+        }else {
+            let tmpPoint = polyPoints.pop();
+            polyPoints.push(redoPoint[0]);
+            polyPoints.push(tmpPoint);
+
+            // 使用下面的方式改变数组，在鼠标移动绘制多边形时获取不到更新后的数组
+            // polyPoints = polyPoints.slice(0, len - 1).concat(redoPoint).concat(polyPoints.slice(len - 1));
+        }
+        _drawPolygon(this, polyPoints);
     };
 
 
@@ -1736,6 +1804,8 @@ import {showMessgae} from "./drawer-message";
      * @private
      */
     function _setGlobalObjectProp() {
+        // 对象选中时保持对象层级（不置顶）
+        fabric.Canvas.prototype.preserveObjectStacking = true;
         // 禁用缩放翻转
         fabric.Object.prototype.lockScalingFlip = true;
     }
@@ -1947,18 +2017,22 @@ import {showMessgae} from "./drawer-message";
                 hoverCursor: MODE_CURSOR.move,
                 moveCursor: MODE_CURSOR.move
             });
-            target.selected = true;
+
             if(target._groupPolygon) {
+                target._groupPolygon.forEach((item) => {
+                    item.selected = true;
+                });
                 _this.highlightObjects(target._groupPolygon);
             }else {
+                target.selected = true;
                 _this.highlightObjects([target]);
             }
             _setClassForObjOverlay(target, 'selected', true);
             _setObjectOverlaysShow(target, true);
 
-            if(target.isType('polygon')) {
+            // if(target.isType('polygon')) {
                 // drawPolygonAnchor(_this, target);
-            }
+            // }
         });
         target.on('deselected', function (evt) {
             if (lObj) {
@@ -1973,18 +2047,21 @@ import {showMessgae} from "./drawer-message";
                     target.evented = false;
                 }
             }
-            target.selected = false;
             if(target._groupPolygon) {
+                target._groupPolygon.forEach((item) => {
+                    item.selected = false;
+                });
                 _this.darkenObjects(target._groupPolygon);
             }else {
+                target.selected = false;
                 _this.darkenObjects([target]);
             }
             _setClassForObjOverlay(target, 'selected', false);
             _setObjectOverlaysShow(target, false);
 
-            if(target.isType('polygon')) {
+            // if(target.isType('polygon')) {
                 // removePolygonAnchor(_this, target);
-            }
+            // }
             _this.option.afterObjectDeSelect(target);
         });
         target.on('removed', function (evt) {
@@ -2321,9 +2398,14 @@ import {showMessgae} from "./drawer-message";
         target.set(newProps).setCoords();
     }
 
+    function _isAgAnchor(target) {
+        return target.agType === AG_TYPE.agAnchor;
+    }
+
     function _isInteractiveAgType(target) {
         return target.agType !== AG_TYPE.agBgImg && target.agType !== AG_TYPE.agLabel &&
-            target.agType !== AG_TYPE.agAssistLine && target.agType !== AG_TYPE.agExclude;
+            target.agType !== AG_TYPE.agAssistLine && target.agType !== AG_TYPE.agAnchor &&
+            target.agType !== AG_TYPE.agExclude;
     }
 
     function _createZoomPercentEle() {
@@ -2354,5 +2436,43 @@ import {showMessgae} from "./drawer-message";
             perEle.innerHTML = Math.round(zoomFrame * 100) + ' %';
             perEle.style.opacity = 1;
         }, PERCENT_INTERVAL);
+    }
+
+    function _removeDrawingPolygon(drawer) {
+        removePolygonAssistLine(drawer);
+        drawer.canvas.remove(drawer.drawingItem);
+        drawer._tmpPolyGeoPoints = [];
+    }
+
+    /**
+     * 多边形绘制
+     * @param drawer
+     * @param polyPoints
+     * @private
+     */
+    function _drawPolygon(drawer, polyPoints) {
+        if (drawer.drawingItem) {
+            drawer.canvas.remove(drawer.drawingItem);
+        }
+
+        drawPolygonAssistLine(drawer, polyPoints);
+
+        let originPos = calcBoundingRectPoit(polyPoints);
+        drawer.drawingItem = new fabric.Polygon(polyPoints, {
+            left: originPos.x,
+            top: originPos.y,
+            strokeWidth: 0,
+            stroke: drawer.drawStyle.borderColor,
+            fill: drawer.drawStyle.backColorHover,
+            objectCaching: false,
+            hasControls: false,
+            hasBorders: false,
+            // selectable: false,
+            // evented: false,
+            agSource: AG_SOURCE.byDraw
+        });
+
+        drawer.canvas.add(drawer.drawingItem);
+        _bindEvtForObject(drawer.drawingItem, drawer);
     }
 })(window);

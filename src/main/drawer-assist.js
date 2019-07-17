@@ -93,7 +93,7 @@ function _drawPolygonAssLine(fCanvas, points, lineWidth, color) {
 /**
  * 绘制多边形时的辅助线
  */
-export function drawPolygonAssistLine(drawer, polygonPoints, pointer) {
+export function drawPolygonAssistLine(drawer, polygonPoints) {
     removePolygonAssistLine(drawer);
 
     if(polygonPoints instanceof Array && polygonPoints.length > 0) {
@@ -136,7 +136,7 @@ export function drawPolygonAnchor(drawer, polygon) {
     let offsetT = polygon.top - polygon.originTop;
     let points = polygon.points;
     let style = drawer.drawStyle;
-    let radius = parseInt(style.anchorSize * 2 / 3);
+    let radius = parseInt(style.anchorSize / 2);
     let tarRadius = calcSWByScale(radius, drawer.zoom);
     let tarSW = calcSWByScale(style.anchorStrokeWidth, drawer.zoom);
     let offset = tarRadius + tarSW / 2;
@@ -156,12 +156,13 @@ export function drawPolygonAnchor(drawer, polygon) {
             hasBorders: false,
             originRadius: radius,
             originStrokeWidth: style.anchorStrokeWidth,
-            agType: AG_TYPE.agExclude
+            agType: AG_TYPE.agAnchor
         });
         c._linkedPoint = p;
+        c._linkedPolygon = polygon;
         polygon._polygonAnchors.push(c);
         drawer.canvas.add(c);
-        _bindEvtForPolygonAnchor(drawer, c, polygon);
+        _bindEvtForPolygonAnchor(drawer, c);
     });
 }
 
@@ -186,6 +187,15 @@ export function updatePolygonAnchor(drawer, polygon) {
     });
 }
 
+export function setPolygonAnchorVisible(polygon, visible) {
+    visible = visible !== false;
+    if(polygon && (polygon._polygonAnchors instanceof Array)) {
+        polygon._polygonAnchors.forEach((item) => {
+            item.set('visible', visible);
+        });
+    }
+}
+
 export function removePolygonAnchor(drawer, polygon) {
     if(polygon && (polygon._polygonAnchors instanceof Array)) {
         polygon._polygonAnchors.forEach((item) => {
@@ -196,13 +206,26 @@ export function removePolygonAnchor(drawer, polygon) {
     }
 }
 
-function _bindEvtForPolygonAnchor(drawer, anchorObj, polygon) {
+function _bindEvtForPolygonAnchor(drawer, anchorObj) {
+    // 锚点移动
     anchorObj.on('moving', function (evt) {
-        let point = evt.pointer;
-        let offsetL = polygon.left - polygon.originLeft;
-        let offsetT = polygon.top - polygon.originTop;
-        anchorObj._linkedPoint.x = point.x - offsetL;
-        anchorObj._linkedPoint.y = point.y - offsetT;
+        let offset = anchorObj.radius + anchorObj.strokeWidth;
+        anchorObj._linkedPoint.x = anchorObj.left + offset;
+        anchorObj._linkedPoint.y = anchorObj.top + offset;
         drawer.refresh();
+    });
+    // 锚点选中
+    anchorObj.on('selected', function (evt) {
+        console.info('锚点选中');
+        anchorObj.set({
+            fill: drawer.drawStyle.anchorColorActive
+        });
+    });
+    // 锚点取消选中
+    anchorObj.on('deselected', function (evt) {
+        console.info('锚点取消选中');
+        anchorObj.set({
+            fill: drawer.drawStyle.anchorColor
+        });
     });
 }

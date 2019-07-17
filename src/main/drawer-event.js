@@ -174,7 +174,7 @@ function keydownHandler(evt) {
 
         // 结束多边形绘制
         self._completeDrawPolygon();
-    } else if (keyCode === 84) {  //T键切换浏览模式
+    } else if (keyCode === 84) {  // T键切换浏览模式
         if (self._beforeMode) {
             self.setMode(self._beforeMode);
             self._beforeMode = null;
@@ -182,10 +182,16 @@ function keydownHandler(evt) {
             self._beforeMode = self.mode;
             self.setMode(DrawerMode.browse);
         }
-    } else if (keyCode === 27) {  //ESC键
+    } else if (keyCode === 27) {  // ESC键
         self.cancelSelection();
         self.cancelDrawing();
         self.option.afterKeydownEsc();
+    } else if (keyCode === 8) {  // 退格键
+        self._undoDrawPolygon();
+    } else if (keyCode === 90 && ctrlKey) {  // ctrl + z键
+        self._undoDrawPolygon();
+    } else if (keyCode === 89 && ctrlKey) {  // ctrl + y键
+        self._redoDrawPolygon();
     }
 }
 
@@ -202,7 +208,9 @@ function keyupHandler(evt) {
         spaceKey = curDrawer.keyStatus.space = false;
         _toggleDragMode(self, false);
     } else if (keyCode === 71) {    // G键
-        self.toggleGroupPolygonMode();
+        if(!evt.target || (evt.target.nodeName !== 'INPUT' && evt.target.nodeName !== 'TEXTAREA')) {
+            self.toggleGroupPolygonMode();
+        }
     }
 }
 

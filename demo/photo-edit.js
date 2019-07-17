@@ -417,7 +417,7 @@ function refresh() {
 var ifObjVisible = true;
 function setObjVisible() {
     ifObjVisible = !ifObjVisible;
-    drawer.setObjectVisible(groupObjectMap['groupObj0'], ifObjVisible);
+    drawer.setObjectVisible(groupObjectMap['groupObj2'], ifObjVisible);
 }
 var ifObjInteractive = true;
 function setObjInteractive() {

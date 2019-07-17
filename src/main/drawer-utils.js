@@ -9,6 +9,7 @@ export const AG_TYPE = {
     agLabel: 'ag_label',
     agRect: 'ag_rect',
     agAssistLine: 'ag_assistLine',
+    agAnchor: 'ag_anchor',
     agExclude: 'ag_exclude' // 要排除的对象
 };
 
@@ -402,9 +403,10 @@ export function calcSWByScale(originSW, scale) {
     let newSW = originSW / scale;
     if(newSW > 8) {
         newSW = 8;
-    }else if(newSW < 0.1) {
-        newSW = 0.1;
     }
+    // else if(newSW < 0.035) {
+    //     newSW = 0.035;
+    // }
     return newSW;
 }
 
@@ -473,4 +475,23 @@ export function convertObjKeyToArr(object) {
         }
     }
     return result;
+}
+
+export function moveObjectIndex(target, index) {
+    if(target && target.moveTo && !isNaN(index)) {
+        try {
+            target.moveTo(index);
+        }catch (e) {
+
+        }
+        if(target._polygonAnchors instanceof Array) {
+            _movePolygonAnchorIndex(target._polygonAnchors, index + 1);
+        }
+    }
+}
+
+function _movePolygonAnchorIndex(anchors, index) {
+    anchors.forEach((item) => {
+        moveObjectIndex(item, index);
+    });
 }

@@ -7,9 +7,8 @@ import {
 } from './drawer-utils';
 
 const MSG_ANIM_TIME = 400; // ms
-const SHOW_DELAY_TIME = 50; //ms
 const  DEFAULT_OPT = {
-    type: 'info',
+    type: 'info',   // info、success、warning、error
     duration: 1500,
     delay: 0
 };

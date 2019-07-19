@@ -19,11 +19,9 @@ import {
     setStrokeWidthByScale
 } from './drawer-utils';
 import {
-    removeAssistLine
+    removeAssistLine,
+    removePolygonPointByAnchor
 } from './drawer-assist';
-import {
-    showMessgae
-} from './drawer-message';
 
 let curDrawer;
 let ctrlKey, spaceKey;
@@ -151,6 +149,12 @@ function keydownHandler(evt) {
         if (document.activeElement.nodeName === 'BODY') {
             let selection = self.getSelection();
             self.removeObjects(selection);
+
+            // 删除选中的多边形锚点所对应的点
+            let anchor = self._getSelectedAnchor();
+            if(anchor) {
+                removePolygonPointByAnchor(self, anchor);
+            }
         }
     } else if (keyCode === 67 && self.mode !== DrawerMode.browse && ctrlKey) {// 复制对象：ctrl+C
         // 判断当前焦点对象是否是文本框，如果是则不执行复制对象的操作

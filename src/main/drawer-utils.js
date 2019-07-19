@@ -282,10 +282,10 @@ export function getPolygonWkt(object, coord, imgRatioXY, zoom) {
 }
 
 function _createPolygon(points, drawer) {
-    let originPos = calcBoundingRectPoit(points);
+    let originPos = calcBoundingRect(points);
     return new fabric.Polygon(points, {
-        left: originPos.x,
-        top: originPos.y,
+        left: originPos.minX,
+        top: originPos.minY,
         strokeWidth: drawer.drawStyle._borderWidth,
         stroke: drawer.drawStyle.borderColor,
         fill: drawer.drawStyle.backColor,
@@ -431,14 +431,25 @@ export function setStrokeWidthByScale(item, scale) {
     }
 }
 
-export function calcBoundingRectPoit(points) {
-    var p = {};
+export function calcBoundingRect(points) {
+    var p = {
+        minX: 0,
+        minY: 0,
+        maxX: 0,
+        maxY: 0
+    };
     points.forEach((item) => {
-        if(!p.x || item.x < p.x) {
-            p.x = item.x;
+        if(!p.minX || item.x < p.minX) {
+            p.minX = item.x;
         }
-        if(!p.y || item.y < p.y) {
-            p.y = item.y;
+        if(!p.minY || item.y < p.minY) {
+            p.minY = item.y;
+        }
+        if(!p.maxX || item.x > p.maxX) {
+            p.maxX = item.x;
+        }
+        if(!p.maxY || item.y > p.maxY) {
+            p.maxY = item.y;
         }
     });
     return p;

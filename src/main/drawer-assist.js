@@ -4,10 +4,11 @@
 
 import {
     // AG_SOURCE,
-    AG_TYPE,
+    AG_TYPE, calcBoundingRect,
     calcSWByScale,
     checkIfWithinBackImg
 } from "./drawer-utils";
+import {showMessgae} from "./drawer-message";
 
 // 辅助线绘制样式
 const ASSIST_LINE_STYLE = {
@@ -209,23 +210,93 @@ export function removePolygonAnchor(drawer, polygon) {
 function _bindEvtForPolygonAnchor(drawer, anchorObj) {
     // 锚点移动
     anchorObj.on('moving', function (evt) {
+        var point = evt.pointer;
+        let polygon = anchorObj._linkedPolygon;
+        var offsetL = polygon.left - polygon.originLeft;
+        var offsetT = polygon.top - polygon.originTop;
+        anchorObj._linkedPoint.x = point.x - offsetL;
+        anchorObj._linkedPoint.y = point.y - offsetT;
         let offset = anchorObj.radius + anchorObj.strokeWidth;
-        anchorObj._linkedPoint.x = anchorObj.left + offset;
-        anchorObj._linkedPoint.y = anchorObj.top + offset;
+        anchorObj.set({
+            left: point.x - offset,
+            top: point.y - offset,
+        });
+        calcPolygonCoords(polygon);
         drawer.refresh();
     });
     // 锚点选中
     anchorObj.on('selected', function (evt) {
-        console.info('锚点选中');
+        // console.info('锚点选中');
         anchorObj.set({
             fill: drawer.drawStyle.anchorColorActive
         });
     });
     // 锚点取消选中
     anchorObj.on('deselected', function (evt) {
-        console.info('锚点取消选中');
+        // console.info('锚点取消选中');
         anchorObj.set({
             fill: drawer.drawStyle.anchorColor
         });
     });
+}
+
+/**
+ * 移除多边形对象的某个点，然后重新绘制该对象
+ * @param drawer
+ * @param polygon
+ * @param point
+ */
+export function removePolygonPointByAnchor(drawer, anchor) {
+    if(!anchor) return;
+
+    let polygon = anchor._linkedPolygon;
+    let points = polygon.points;
+    let len = points.length;
+    if(len <= 3) {
+        showMessgae('多边形至少包含三个点', {
+            type: 'warning',
+            duration: 1500
+        });
+        return;
+    }
+
+    let point = anchor._linkedPoint;
+    let anchors = polygon._polygonAnchors;
+    for(let i = 0; i < len; i++) {
+        if(point === points[i]) {
+            points.splice(i, 1);
+            drawer.removeObject(anchor, false);
+            for(let j = 0; j < anchors.length; j++) {
+                if(anchor === anchors[j]) {
+                    anchors.splice(j, 1);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    calcPolygonCoords(polygon);
+    drawer.refresh();
+    drawer.option.afterModify(polygon, true);
+}
+
+/**
+ * 重新计算多边形对象的定位点，即最小外包矩形的四角坐标
+ * @param polygon
+ */
+export function calcPolygonCoords(polygon) {
+    let points = polygon.points;
+    let bRect = calcBoundingRect(points);
+    let oCoords = polygon.oCoords;
+    oCoords.tl.x = bRect.minX;
+    oCoords.tl.y = bRect.minY;
+
+    oCoords.tr.x = bRect.maxX;
+    oCoords.tr.y = bRect.minY;
+
+    oCoords.bl.x = bRect.minX;
+    oCoords.bl.y = bRect.maxY;
+
+    oCoords.br.x = bRect.maxX;
+    oCoords.br.y = bRect.maxY;
 }

@@ -26,7 +26,7 @@ import {
     setObjectMoveLock,
     calcSWByScale,
     setStrokeWidthByScale,
-    calcBoundingRectPoit,
+    calcBoundingRect,
     scaleImgToSize,
     MOUSE_POINT,
     convertObjToArr,
@@ -1279,7 +1279,7 @@ import {showMessgae} from "./drawer-message";
      * @param flag
      */
     global.AgImgDrawer.prototype.setEditDirectly = function (flag) {
-        flag = flag === true ? true : false;
+        flag = flag === true;
         this.editDirectly = flag;
         if (this.mode === DrawerMode.edit) {
             if (flag) {
@@ -1757,6 +1757,21 @@ import {showMessgae} from "./drawer-message";
             // polyPoints = polyPoints.slice(0, len - 1).concat(redoPoint).concat(polyPoints.slice(len - 1));
         }
         _drawPolygon(this, polyPoints);
+    };
+
+    /**
+     * 获取当前选中的锚点
+     */
+    global.AgImgDrawer.prototype._getSelectedAnchor = function () {
+        let activeObjs = this.canvas.getActiveObjects();
+        let anchor = null;
+        for(let i = 0; i < activeObjs.length; i++) {
+            if(activeObjs[i].agType === AG_TYPE.agAnchor) {
+                anchor = activeObjs[i];
+                break;
+            }
+        }
+        return anchor;
     };
 
 
@@ -2457,10 +2472,10 @@ import {showMessgae} from "./drawer-message";
 
         drawPolygonAssistLine(drawer, polyPoints);
 
-        let originPos = calcBoundingRectPoit(polyPoints);
+        let originPos = calcBoundingRect(polyPoints);
         drawer.drawingItem = new fabric.Polygon(polyPoints, {
-            left: originPos.x,
-            top: originPos.y,
+            left: originPos.minX,
+            top: originPos.minY,
             strokeWidth: 0,
             stroke: drawer.drawStyle.borderColor,
             fill: drawer.drawStyle.backColorHover,

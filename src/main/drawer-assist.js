@@ -6,7 +6,8 @@ import {
     // AG_SOURCE,
     AG_TYPE, calcBoundingRect,
     calcSWByScale,
-    checkIfWithinBackImg
+    checkIfWithinBackImg,
+    updateObjectOverlays
 } from "./drawer-utils";
 import {showMessgae} from "./drawer-message";
 
@@ -222,6 +223,7 @@ function _bindEvtForPolygonAnchor(drawer, anchorObj) {
             top: point.y - offset,
         });
         calcPolygonCoords(polygon);
+        // updateObjectOverlays(polygon);
         drawer.refresh();
     });
     // 锚点选中
@@ -276,8 +278,8 @@ export function removePolygonPointByAnchor(drawer, anchor) {
         }
     }
     calcPolygonCoords(polygon);
-    drawer.refresh();
     drawer.option.afterModify(polygon, true);
+    drawer.refresh();
 }
 
 /**

@@ -1509,8 +1509,8 @@ import {showMessgae} from "./drawer-message";
                     });
                 } else {
                     object.set({
-                        stroke: self.drawStyle.borderColor,
-                        fill: self.drawStyle.backColor
+                        stroke: object.originStroke,
+                        fill: object.originFill
                     });
                     moveObjectIndex(object, object.drawIndex);
                     let labelObj = object._labelObject;
@@ -2277,7 +2277,9 @@ import {showMessgae} from "./drawer-message";
         _recordOriginProp(target, {
             originLeft: target.left,
             originTop: target.top,
+            originStroke: drawer.drawStyle.borderColor,
             originStrokeWidth: drawer.drawStyle.borderWidth,
+            originFill: drawer.drawStyle.backColor,
             originFontSize: drawer.drawStyle.fontSize
         });
     }

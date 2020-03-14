@@ -31,13 +31,20 @@ $().ready(function() {
             addNodeByObject(object);
         },
         afterDraw: function(object) {
+            drawer.createOverlay({
+                ele: createOverlayEle("6666"),
+                target: object,
+                position: 'top',
+                visible: true
+            });
+
             // console.info('绘制', object);
             // 仅保留一个矩形框
             // if(newDrawRect) {
             //     drawer.removeObject(newDrawRect);
             // }
-            newDrawRect = object;
-            drawer.setActiveObject(object);
+            // newDrawRect = object;
+            // drawer.setActiveObject(object);
         },
         afterModify(object, isSingle) {
             console.info('修改', object, isSingle);
@@ -99,6 +106,16 @@ function createPopu(text) {
     div.appendChild(textarea);
     textarea.value = text;
     return div;
+}
+
+function createOverlayEle(text) {
+    let ele = document.createElement('div');
+    ele.innerHTML = text;
+    ele.style.position = 'absolute';
+    ele.style.color = 'white';
+    ele.style.backgroundColor = '#000000';
+    ele.style.padding = '10px';
+    return ele;
 }
 
 function toggleSide(ele) {
@@ -237,6 +254,9 @@ function switchDrawMode(mode) {
 }
 function drawRect() {
     drawer.drawType = 'Rect';
+}
+function drawCircle() {
+    drawer.drawType = 'Circle';
 }
 function drawEclipse() {
     drawer.drawType = 'Ellipse';

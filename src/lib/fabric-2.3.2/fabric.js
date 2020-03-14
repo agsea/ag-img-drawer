@@ -9875,7 +9875,13 @@ fabric.PatternBrush = fabric.util.createClass(fabric.PencilBrush, /** @lends fab
 
         // 对X和Y两个方向分别计算缩放比例的变化因子
         var _scaleFactorX = localMouse.x / (_dim.x * transform.original.scaleX / target.scaleX);
-        var _scaleFactorY = localMouse.y / (_dim.y * transform.original.scaleY / target.scaleY);
+        var _scaleFactorY;
+        // 是否保持宽高比
+        if (target.lockWhRation !== true) {
+            _scaleFactorY = localMouse.y / (_dim.y * transform.original.scaleY / target.scaleY);
+        } else {
+            _scaleFactorY = _scaleFactorX;
+        }
 
       // We use transform.scaleX/Y instead of target.scaleX/Y
       // because the object may have a min scale and we'll loose the proportions

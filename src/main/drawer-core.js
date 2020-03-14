@@ -100,9 +100,10 @@ import {showMessgae} from "./drawer-message";
         }
     };
 
-    // 绘制类型：rect、ellipse、text、polygon
+    // 绘制类型：rect、circle、ellipse、text、polygon
     let DRAWER_TYPE = {
         rect: 'Rect',
+        circle: 'Circle',
         ellipse: 'Ellipse',
         text: 'Text',
         polygon: 'Polygon'
@@ -459,6 +460,22 @@ import {showMessgae} from "./drawer-message";
                                 stroke: self.drawStyle.borderColor,
                                 strokeWidth: self.drawStyle._borderWidth,
                                 originStrokeWidth: self.drawStyle.borderWidth
+                            });
+                        } else if (self.drawType === DRAWER_TYPE.circle) {
+                            tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
+                            tempHeight = Math.abs(endY - startY) / 2 - self.drawStyle._borderWidth / 2;
+                            tempWidth = tempWidth < 0 ? 0 : tempWidth;
+                            tempHeight = tempHeight < 0 ? 0 : tempHeight;
+
+                            self.drawingItem = new fabric.Circle({
+                                radius: tempWidth,
+                                left: tempLeft,
+                                top: tempTop,
+                                fill: self.drawStyle.backColor,
+                                stroke: self.drawStyle.borderColor,
+                                strokeWidth: self.drawStyle._borderWidth,
+                                originStrokeWidth: self.drawStyle.borderWidth,
+                                lockWhRation: true
                             });
                         } else if (self.drawType === DRAWER_TYPE.ellipse) {
                             tempWidth = Math.abs(endX - startX) / 2 - self.drawStyle._borderWidth / 2;
@@ -1298,6 +1315,21 @@ import {showMessgae} from "./drawer-message";
         window.removeEventListener('keydown', DrawerEvt.keyupHandler, false);
     };
 
+    /**
+     * 刷新绘图器容器尺寸
+     */
+    global.AgImgDrawer.prototype.setConSize = function (width, height) {
+        let container = document.getElementById(this.containerId);
+        let opt = this.option;
+        opt.width = width;
+        opt.height = height;
+        this.originWidth = opt.width;
+        this.originHeight = opt.height;
+        container.style.width = opt.width + 'px';
+        container.style.height = opt.height + 'px';
+        this.resetSize();
+    };
+
 
     //--------------------------------------------------------
     // 工具方法
@@ -1322,6 +1354,27 @@ import {showMessgae} from "./drawer-message";
         let rect = new fabric.Rect(option);
         rect.agType = AG_TYPE.agRect;
         return rect;
+    };
+
+    /**
+     * 椭圆对象，继承fabric.Ellipse(实例继承)
+     * @param option
+     * @returns {fabric.Ellipse}
+     */
+    global.AgImgDrawer.prototype.createEllipse = function (option) {
+        option = mergeObject({
+            rx: 100,
+            ry: 100,
+            left: 0,
+            top: 0,
+            fill: this.drawStyle.backColor,
+            stroke: this.drawStyle.borderColor,
+            strokeWidth: this.drawStyle.borderWidth,
+            originStrokeWidth: this.drawStyle.borderWidth
+        }, option);
+        let fabObj = new fabric.Ellipse(option);
+        fabObj.agType = AG_TYPE.agRect;
+        return fabObj;
     };
 
     /**

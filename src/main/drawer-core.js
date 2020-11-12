@@ -380,10 +380,11 @@ import {showMessgae} from "./drawer-message";
                 }
             }
         });
+        // 鼠标双击事件：双击结束多边形绘制
         canvas.on('mouse:dblclick', function (evt) {
-            // 双击结束多边形绘制
             self._completeDrawPolygon();
         });
+        // 鼠标移动事件
         canvas.on('mouse:move', function (evt) {
             _hoverOnCanvas = true;
             self._withinBackImg = checkIfWithinBackImg(evt.absolutePointer, self._originCoord, self.backgroundImageSize).within;
@@ -527,6 +528,7 @@ import {showMessgae} from "./drawer-message";
                 MOUSE_POINT.y = evt.absolutePointer.y;
             }
         });
+        // 鼠标弹起事件
         canvas.on('mouse:up', function(evt) {
             this.isDragging = false;
             this.selection = true;
@@ -562,9 +564,11 @@ import {showMessgae} from "./drawer-message";
                 removeAssistLine(self);
             }
         });
+        // 鼠标移入事件
         canvas.on('mouse:over', function (evt) {
             _hoverOnCanvas = true;
         });
+        // 鼠标移出事件
         canvas.on('mouse:out', function (evt) {
             this.isDragging = false;
             _hoverOnCanvas = false;
@@ -575,7 +579,7 @@ import {showMessgae} from "./drawer-message";
                 removeAssistLine(self);
             }
         });
-        // 滚轮
+        // 鼠标滚轮事件
         canvas.on('mouse:wheel', function (evt) {
             evt.e.preventDefault();
             evt.e.stopPropagation();
@@ -612,7 +616,7 @@ import {showMessgae} from "./drawer-message";
             }
         });
 
-        //对象事件
+        // 对象事件
         canvas.on('object:added', function (evt) {
             if (self.drawingItem || !_isInteractiveAgType(evt.target)) {
                 return;
@@ -658,7 +662,7 @@ import {showMessgae} from "./drawer-message";
             updateObjectOverlays(target);
         });
 
-        //选择集事件
+        // 选择集事件
         canvas.on('selection:created', function (evt) {
             hasSelect = true;
             if (self.drawingItem) {
@@ -712,7 +716,7 @@ import {showMessgae} from "./drawer-message";
         window.removeEventListener('keydown', DrawerEvt.keyupHandler, false);
         window.addEventListener('keyup', DrawerEvt.keyupHandler, false);
 
-        //初始化完成的回调：立即执行会出现获取不到drawer对象的问题
+        // 初始化完成的回调：立即执行会出现获取不到drawer对象的问题
         setTimeout(function () {
             option.afterInitialize();
         }, 100);

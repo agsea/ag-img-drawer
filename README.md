@@ -2,7 +2,7 @@
 
 基于简单而强大的 Javascript Canvas 库 [fabric.js](http://fabricjs.com/) 实现的矢量图形绘制插件
 
-![效果图](https://imgchr.com/i/DTux3T)
+![效果图](https://s3.ax1x.com/2020/12/03/DTux3T.gif)
 
 
 ## License
